@@ -1,8 +1,8 @@
 # Technical Report
 ## Agentic Insurance Advisor System — Mission 3 Elite Assessment
 
-**Version:** 1.0.1
-**Date:** 2026-04-07
+**Version:** 1.1.0
+**Date:** 2026-04-14
 **Classification:** Assessment Deliverable
 
 ---
@@ -27,7 +27,9 @@ The system is composed of four logical layers:
 
 The graph is a directed acyclic graph with one conditional cycle (for retry logic). Nodes are:
 
-`intent_parser → validator → [planner | clarifier | fallback] → retrieval_tool → scoring_tool → [comparison_tool] → output_composer → evaluator`
+`intent_parser → validator → [planner | clarifier | fallback]`
+`clarifier / fallback → evaluator`
+`planner → retrieval_tool → scoring_tool → [comparison_tool] → output_composer → evaluator`
 
 State flows as a single immutable `AgentState` TypedDict. Each node receives the full state, makes targeted writes to its own output fields, appends to `execution_trace`, and returns. No node has side effects on fields it does not own.
 
@@ -63,6 +65,7 @@ All nodes are `async` Python functions. The graph is compiled with `MemorySaver`
 - Ollama calls are `await`ed with `httpx.AsyncClient`
 - ChromaDB queries (synchronous SDK) are wrapped in `asyncio.to_thread()` to avoid blocking the event loop
 - Langfuse span creation is non-blocking (fire-and-forget with try/except)
+- **Dependency Injection:** Langfuse trace context is injected via LangGraph `config["configurable"]["langfuse_trace"]`. This avoids polluting the `AgentState` with non-msgpack-serializable objects which would break `MemorySaver` checkpointing.
 
 ### 2.3 Tool Execution Pattern
 
@@ -82,7 +85,7 @@ Documents are embedded with `nomic-embed-text` via Ollama — the same Ollama in
 
 ### 3.2 Scoring Tool — Deterministic Rules Engine
 
-The scoring tool is the most important tool in the system and the only one that is entirely deterministic. It receives retrieved package documents and extracted customer entities, applies the benchmark rules from the assignment spec (industry risk, region cost pressure, budget compatibility, priority alignment, dependents ratio), and returns each package with a score from 0–100 and a breakdown of which rules were applied.
+The scoring tool is the most important tool in the system and the only one that is entirely deterministic. It receives retrieved package documents and extracted customer entities, applies the benchmark rules from the assignment spec (industry risk, region cost pressure, budget compatibility, priority alignment, dependents ratio), and returns each package with a score from 0–100 and a breakdown of which rules were applied. *Refactoring Note:* The scoring engine includes gap-aware, weighted confidence calculations (confidence drops if the score margin between the top recommendation and the runner-up is too narrow) and uses longest-match-first for text-based priority matching.
 
 The decision to make this tool deterministic (no LLM) was intentional and deliberate. Business rules must be auditable, reproducible, and testable. An LLM scoring engine would produce different scores on repeated runs, could not be unit-tested with deterministic assertions, and would make it impossible to explain exactly why a recommendation changed between two runs. The scoring tool has 100% unit test coverage.
 
@@ -185,4 +188,4 @@ Upgrade the `MemorySaver` checkpointer to `SqliteSaver` for persistent conversat
 ---
 
 *Technical Report — Agentic Insurance Advisor System*
-*Mission 3 Elite Assessment | Version 1.0.1 | 2026-04-07*
+*Mission 3 Elite Assessment | Version 1.1.0 | 2026-04-14*

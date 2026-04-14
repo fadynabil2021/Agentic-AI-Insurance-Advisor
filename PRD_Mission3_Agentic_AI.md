@@ -1,9 +1,9 @@
 # Product Requirements Document
 ## Mission 3 – Elite Assessment: Agentic Insurance Advisor System
 
-**Version:** 1.0.1
+**Version:** 1.1.0
 **Author:** Principal Engineering Lead
-**Date:** 2026-04-07
+**Date:** 2026-04-14
 **Classification:** Internal — Implementation Reference
 **Status:** Final — Ready for Development
 
@@ -264,8 +264,8 @@ graph.add_conditional_edges(
     }
 )
 
-graph.add_edge("clarifier", END)  # Returns clarification; user must resubmit
-graph.add_edge("fallback", END)
+graph.add_edge("clarifier", "evaluator")
+graph.add_edge("fallback", "evaluator")
 
 graph.add_edge("planner", "retrieval_tool")
 graph.add_edge("retrieval_tool", "scoring_tool")
@@ -285,9 +285,10 @@ graph.add_edge("comparison_tool", "output_composer")
 graph.add_edge("output_composer", "evaluator")
 graph.add_edge("evaluator", END)
 
-# Compile with in-memory checkpointing (upgrade to SQLite saver for persistence)
+# Compile with in-memory checkpointing
 checkpointer = MemorySaver()
 compiled_graph = graph.compile(checkpointer=checkpointer)
+# Note: Langfuse trace is injected via config["configurable"]["langfuse_trace"]
 ```
 
 ### 5.2 Conditional Routing Logic
@@ -643,125 +644,29 @@ def build_metadata_filter(entities: dict) -> dict:
 **Input:** `state.retrieval_results`, `state.extracted_entities`
 **Output:** `state.scoring_results`, `state.scoring_breakdown`
 
-**Scoring Rules (directly from PDF Section 5C):**
-
-```python
-INDUSTRY_RISK = {
-    "healthcare":    "high",
-    "construction":  "medium",
-    "retail":        "medium-low",
-}
-
-REGION_COST = {
-    "riyadh":  3,   # highest cost pressure
-    "dammam":  2,
-    "jeddah":  1,   # lowest
-}
-
-BUDGET_PACKAGE_COMPATIBILITY = {
-    "low":    ["basic", "standard"],      # Premium not recommended unless justified
-    "medium": ["basic", "standard", "premium"],
-    "high":   ["standard", "premium"],
-}
-
-PRIORITY_PACKAGE_MAP = {
-    "cheapest acceptable": ["basic", "standard"],
-    "best coverage":       ["premium", "standard"],
-    "balanced":            ["standard"],
-    "stable service":      ["standard", "premium"],
-}
-```
+**Scoring Rules and Constants:**
+Constants are defined in `scoring_constants.py` to cleanly decouple weighted penalties from the logic.
 
 **Scoring Function:**
 
 ```python
-def scoring_tool_node(state: AgentState) -> AgentState:
-    with langfuse.start_as_current_span("scoring_tool"):
-        state["tools_used"].append("scoring_tool")
-        entities = state["extracted_entities"]
-        results = []
-        breakdown = {}
+def scoring_tool_node(state: AgentState, langfuse_trace) -> AgentState:
+    # ... Create span via langfuse_trace ...
+    
+    for pkg in packages:
+        # Score calculation applies flat weights from scoring_constants.py
+        # priority matching uses longest-match-first to avoid dict key ordering bugs
         
-        for pkg in state["retrieval_results"]:
-            if pkg["type"] != "package":
-                continue
-            
-            score = 100  # start at 100, deduct penalties
-            pkg_name = pkg["name"].lower()
-            reasons = []
-            
-            # Rule 1: Budget compatibility
-            budget = (entities.get("budget") or "medium").lower()
-            compatible = BUDGET_PACKAGE_COMPATIBILITY.get(budget, ["standard"])
-            if pkg_name not in compatible:
-                score -= 40
-                reasons.append(f"PENALTY: {pkg_name} not compatible with {budget} budget")
-            
-            # Rule 2: Industry risk
-            industry = (entities.get("industry") or "").lower()
-            risk = INDUSTRY_RISK.get(industry, "medium")
-            if risk == "high" and pkg_name == "basic":
-                score -= 25
-                reasons.append("PENALTY: Basic not suitable for high-risk industry (healthcare)")
-            if risk == "medium-low" and pkg_name == "premium":
-                score -= 10
-                reasons.append("NOTE: Premium may be over-spec for medium-low risk industry")
-            
-            # Rule 3: Region cost pressure
-            region = (entities.get("region") or "").lower()
-            cost_pressure = REGION_COST.get(region, 1)
-            if cost_pressure >= 3 and pkg_name == "premium" and budget == "medium":
-                score -= 15
-                reasons.append("PENALTY: High region cost pressure limits Premium viability on medium budget")
-            
-            # Rule 4: Priority alignment
-            priority = (entities.get("priority") or "balanced").lower()
-            preferred = []
-            for k, v in PRIORITY_PACKAGE_MAP.items():
-                if k in priority:
-                    preferred = v
-                    break
-            if preferred and pkg_name not in preferred:
-                score -= 20
-                reasons.append(f"PENALTY: {pkg_name} does not align with priority '{priority}'")
-            elif preferred and pkg_name in preferred:
-                score += 10
-                reasons.append(f"BONUS: {pkg_name} matches priority '{priority}'")
-            
-            # Rule 5: Dependents ratio (if provided)
-            dep_ratio = entities.get("dependents_ratio")
-            if dep_ratio and dep_ratio > 0.5 and pkg_name == "basic":
-                score -= 15
-                reasons.append("PENALTY: High dependents ratio increases benefits cost; Basic insufficient")
-            
-            score = max(0, min(100, score))  # clamp 0-100
-            results.append({"package": pkg, "score": score, "reasons": reasons})
-            breakdown[pkg_name] = {"score": score, "reasons": reasons}
-        
-        results.sort(key=lambda x: x["score"], reverse=True)
-        state["scoring_results"] = results
-        state["scoring_breakdown"] = breakdown
-        
-        if results:
-            top = results[0]
-            state["execution_trace"].append(
-                f"scoring_tool: top package='{top['package']['name']}' "
-                f"score={top['score']}, breakdown={breakdown}"
-            )
-        else:
-            state["execution_trace"].append("scoring_tool: WARNING — no packages scored")
-        
-        # Determine confidence
-        if results and results[0]["score"] >= 80:
-            state["confidence"] = ConfidenceLevel.HIGH
-        elif results and results[0]["score"] >= 60:
-            state["confidence"] = ConfidenceLevel.MEDIUM_HIGH
-        elif results and results[0]["score"] >= 40:
-            state["confidence"] = ConfidenceLevel.MEDIUM
-        else:
-            state["confidence"] = ConfidenceLevel.LOW
-        
-        return state
+        # Determine confidence using _compute_confidence(top_score, second_score):
+        # Base confidence from absolute score:
+        #  >= 80 -> HIGH
+        #  >= 60 -> MEDIUM_HIGH
+        #  >= 40 -> MEDIUM
+        #  < 40  -> LOW
+        # THEN factor in score gap to #2. If the gap < 10 (CONFIDENCE_GAP_NARROW), downgrade confidence by one tier.
+    
+    # ... End span ...
+    return state
 ```
 
 ---
@@ -1585,7 +1490,7 @@ EVAL_SCENARIOS = [
 
 ```json
 {
-  "run_id": "eval_20260407_143022",
+  "run_id": "eval_20260414_143022",
   "total_scenarios": 8,
   "passed": 7,
   "failed": 1,
@@ -2366,6 +2271,6 @@ Order of implementation:
 
 ---
 
-*End of PRD — Version 1.0.1*
+*End of PRD — Version 1.1.0*
 *Model confirmed: `gemma4:31b-cloud` via Ollama. All references updated.*
 *All decisions confirmed via pre-PRD elicitation. No assumptions remain.*

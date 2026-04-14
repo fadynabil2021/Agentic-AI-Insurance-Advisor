@@ -53,6 +53,6 @@ async def health_check():
     overall = "healthy" if all(service_status.values()) else "degraded"
     return HealthResponse(
         status=overall,
-        version="1.0.1",
+        version="1.1.0",
         services=service_status,
     )

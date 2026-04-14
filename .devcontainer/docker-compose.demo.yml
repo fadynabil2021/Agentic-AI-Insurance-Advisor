@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  # In Demo/Codespaces mode, we use a lightweight 2B parameter model (gemma:2b)
+  # instead of the 31B cloud model, because Codespaces standard tier has 8GB RAM.
+  ollama-init:
+    entrypoint: >
+      sh -c "
+        echo 'Pulling lightweight LLM for codespaces demo (gemma:2b)...' &&
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"gemma:2b\"}' --max-time 600 &&
+        echo 'Pulling nomic-embed-text...' &&
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"nomic-embed-text\"}' --max-time 600 &&
+        echo 'Model pulls complete.'
+      "
+
+  backend:
+    environment:
+      # Override the default 31B model to use the lightweight locally pulled one
+      OLLAMA_MODEL: "gemma:2b"
+      
+      # Demo-only Langfuse Keys so users don't need to generate their own
+      LANGFUSE_PUBLIC_KEY: "pk-lf-4c594903-a81e-439b-806e-e6baafadca97"
+      LANGFUSE_SECRET_KEY: "sk-lf-03855239-87ae-40f1-a301-71e4f0390ae2"

@@ -1,4 +1,7 @@
 # Agentic Insurance Advisor System
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/fadynabil2021/Agentic-AI-Insurance-Advisor)
+
 ### Mission 3 – Elite Assessment | Senior/Elite Implementation
 
 A production-grade agentic AI system built with LangGraph, Ollama (gemma4:31b-cloud), FastAPI, Next.js, ChromaDB, and Langfuse. Fully containerized — runs entirely locally via Docker Compose.
@@ -295,7 +298,7 @@ Expected:
 ```json
 {
   "status": "healthy",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "services": {
     "ollama": true,
     "chromadb": true,
@@ -414,7 +417,7 @@ Avg grounding score:  0.926
 Hallucinations detected: 0
 Avg latency: 2155ms
 Full report: docs/evaluation_report.json
-Langfuse session: http://localhost:3001/sessions/eval_20260407_143022
+Langfuse session: http://localhost:3001/sessions/eval_20260414_143022
 ```
 
 ---
@@ -615,7 +618,7 @@ FASTAPI_URL=http://localhost:8000
 ### Unit tests (deterministic tools — fast, no LLM)
 
 ```bash
-docker compose exec backend pytest tests/test_scoring_tool.py tests/test_validator.py tests/test_routing.py -v
+docker compose exec backend pytest tests/test_scoring_tool.py tests/test_validator.py tests/test_routing.py tests/test_comparison_tool.py -v
 ```
 
 These tests run purely on deterministic logic. They should complete in under 5 seconds and require no external services.

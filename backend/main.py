@@ -72,7 +72,7 @@ app = FastAPI(
         "A stateful, graph-based agentic AI that accepts natural-language insurance "
         "plan queries and returns grounded, structured recommendations."
     ),
-    version="1.0.1",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
