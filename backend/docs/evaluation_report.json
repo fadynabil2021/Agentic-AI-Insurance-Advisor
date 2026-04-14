@@ -1,0 +1,220 @@
+{
+  "run_id": "eval_20260414_101901",
+  "total_scenarios": 8,
+  "passed": 7,
+  "failed": 1,
+  "pass_rate": 0.875,
+  "avg_scores": {
+    "task_success": 0.875,
+    "grounding_score": 1.0,
+    "hallucination_detected": 0.0,
+    "plan_completeness": 1.0,
+    "confidence_calibration": 1.0,
+    "tool_coverage": 1.0,
+    "trace_integrity": 0.938
+  },
+  "results": [
+    {
+      "scenario_id": "S1_balanced",
+      "user_request": "Recommend the best plan for a healthcare company in Riyadh.",
+      "passed": true,
+      "failures": [],
+      "recommendation": {
+        "plan_name": "Standard",
+        "network": "B",
+        "price_range": [
+          6000,
+          7500
+        ]
+      },
+      "confidence": "high",
+      "scores": {
+        "task_success": 1.0,
+        "plan_completeness": 1.0,
+        "tool_coverage": 1.0,
+        "confidence_calibration": 1.0,
+        "trace_integrity": 1.0,
+        "grounding_score": 1.0,
+        "hallucination_detected": false,
+        "hallucination_detail": null
+      },
+      "latency_ms": 7081,
+      "trace_id": "14ec423d-2833-4ab9-b76f-db73d1205e94"
+    },
+    {
+      "scenario_id": "S2_cheapest",
+      "user_request": "Give me the cheapest acceptable option for a construction customer in Jeddah.",
+      "passed": true,
+      "failures": [],
+      "recommendation": {
+        "plan_name": "Standard",
+        "network": "B",
+        "price_range": [
+          6000,
+          7500
+        ]
+      },
+      "confidence": "high",
+      "scores": {
+        "task_success": 1.0,
+        "plan_completeness": 1.0,
+        "tool_coverage": 1.0,
+        "confidence_calibration": 1.0,
+        "trace_integrity": 1.0,
+        "grounding_score": 1.0,
+        "hallucination_detected": false,
+        "hallucination_detail": null
+      },
+      "latency_ms": 10635,
+      "trace_id": "d2380ae6-7d0c-4645-a198-da09596adf0f"
+    },
+    {
+      "scenario_id": "S3_compare",
+      "user_request": "Compare Standard and Premium for a retail customer in Dammam.",
+      "passed": true,
+      "failures": [],
+      "recommendation": {
+        "plan_name": "Standard",
+        "network": "B",
+        "price_range": [
+          6000,
+          7500
+        ]
+      },
+      "confidence": "high",
+      "scores": {
+        "task_success": 1.0,
+        "plan_completeness": 1.0,
+        "tool_coverage": 1.0,
+        "confidence_calibration": 1.0,
+        "trace_integrity": 1.0,
+        "grounding_score": 1.0,
+        "hallucination_detected": false,
+        "hallucination_detail": null
+      },
+      "latency_ms": 19166,
+      "trace_id": "f61ef360-374a-4823-80d0-bc4448178ebd"
+    },
+    {
+      "scenario_id": "S4_missing_info",
+      "user_request": "Recommend a plan for my company.",
+      "passed": true,
+      "failures": [],
+      "recommendation": null,
+      "confidence": "none",
+      "scores": {
+        "task_success": 1.0,
+        "plan_completeness": 1.0,
+        "tool_coverage": 1.0,
+        "confidence_calibration": 1.0,
+        "trace_integrity": 0.75,
+        "grounding_score": 1.0,
+        "hallucination_detected": false
+      },
+      "latency_ms": 2138,
+      "trace_id": "a86a6cca-0022-4c41-871c-7aaa4e498ff6"
+    },
+    {
+      "scenario_id": "S5_explain",
+      "user_request": "Why did you choose that recommendation?",
+      "passed": true,
+      "failures": [],
+      "recommendation": {
+        "plan_name": "Standard",
+        "network": "B",
+        "price_range": [
+          6000,
+          7500
+        ]
+      },
+      "confidence": "high",
+      "scores": {
+        "task_success": 1.0,
+        "plan_completeness": 1.0,
+        "tool_coverage": 1.0,
+        "confidence_calibration": 1.0,
+        "trace_integrity": 1.0,
+        "grounding_score": 1.0,
+        "hallucination_detected": false,
+        "hallucination_detail": null
+      },
+      "latency_ms": 5215,
+      "trace_id": "422bd3a9-0727-4c15-80ae-400e3c1442ea"
+    },
+    {
+      "scenario_id": "E1_conflicting_constraints",
+      "user_request": "I want the best possible coverage but my budget is very low for a construction company in Riyadh.",
+      "passed": false,
+      "failures": [
+        "Expected confidence <= medium, got high"
+      ],
+      "recommendation": {
+        "plan_name": "Standard",
+        "network": "B",
+        "price_range": [
+          6000,
+          7500
+        ]
+      },
+      "confidence": "high",
+      "scores": {
+        "task_success": 1.0,
+        "plan_completeness": 1.0,
+        "tool_coverage": 1.0,
+        "confidence_calibration": 1.0,
+        "trace_integrity": 1.0,
+        "grounding_score": 1.0,
+        "hallucination_detected": false,
+        "hallucination_detail": null
+      },
+      "latency_ms": 23219,
+      "trace_id": "e10f4408-6136-4b2b-b9f7-5f515e7035f2"
+    },
+    {
+      "scenario_id": "E2_unsupported",
+      "user_request": "What is the weather in Riyadh today?",
+      "passed": true,
+      "failures": [],
+      "recommendation": null,
+      "confidence": "none",
+      "scores": {
+        "task_success": 0.0,
+        "plan_completeness": 1.0,
+        "tool_coverage": 1.0,
+        "confidence_calibration": 1.0,
+        "trace_integrity": 0.75,
+        "grounding_score": 1.0,
+        "hallucination_detected": false
+      },
+      "latency_ms": 6934,
+      "trace_id": "606378b8-459b-4c2d-9629-7fab9c2403d8"
+    },
+    {
+      "scenario_id": "E3_empty_retrieval",
+      "user_request": "Recommend a plan for a mining company in Tabuk.",
+      "passed": true,
+      "failures": [],
+      "recommendation": {
+        "plan_name": "Standard",
+        "network": "B",
+        "price_range": [
+          6000,
+          7500
+        ]
+      },
+      "confidence": "high",
+      "scores": {
+        "task_success": 1.0,
+        "plan_completeness": 1.0,
+        "tool_coverage": 1.0,
+        "confidence_calibration": 1.0,
+        "trace_integrity": 1.0,
+        "grounding_score": 1.0,
+        "hallucination_detected": false,
+        "hallucination_detail": null
+      },
+      "latency_ms": 5443,
+      "trace_id": "24457f6a-8b6c-4e1e-a6cc-e76589caf316"
+    }
+  ]
+}
