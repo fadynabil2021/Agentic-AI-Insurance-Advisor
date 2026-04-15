@@ -75,8 +75,9 @@ async def shutdown_services():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown logic."""
-    # Non-blocking startup - initialize services in background
-    await initialize_services()
+    import asyncio
+    # Non-blocking startup - initialize services in background so healthchecks pass immediately
+    asyncio.create_task(initialize_services())
     yield
     await shutdown_services()
 
