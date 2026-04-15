@@ -2,6 +2,7 @@
 FastAPI application entry point.
 Handles lifespan (startup/shutdown), middleware, and router registration.
 """
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -17,51 +18,67 @@ from agent.graph import build_graph
 
 ollama_client: OllamaClient = None
 compiled_graph = None
+services_available = False
+
+
+async def initialize_services():
+    """Initialize external services (Ollama, ChromaDB, Redis, Langfuse)."""
+    global ollama_client, compiled_graph, services_available
+
+    try:
+        print("[startup] Initializing Agentic Insurance Advisor...")
+
+        # Build Ollama client
+        ollama_client = OllamaClient(
+            host=settings.OLLAMA_HOST,
+            model=settings.OLLAMA_MODEL,
+            embed_model=settings.OLLAMA_EMBED_MODEL,
+            timeout=settings.OLLAMA_TIMEOUT,
+        )
+
+        # Build and compile the LangGraph
+        compiled_graph = build_graph(ollama_client)
+        print("[startup] LangGraph compiled successfully.")
+
+        # Pre-warm Ollama (avoids cold-start latency on first user request)
+        try:
+            print(f"[startup] Warming up Ollama model {settings.OLLAMA_MODEL}...")
+            await ollama_client.chat(
+                [{"role": "user", "content": "ping"}],
+                max_tokens=5,
+            )
+            print("[startup] Ollama warm-up complete.")
+        except Exception as e:
+            print(f"[startup] WARNING: Ollama warm-up failed — {e}. Continuing anyway.")
+
+        services_available = True
+        print("[startup] All services initialized successfully.")
+
+    except Exception as e:
+        print(f"[startup] WARNING: Service initialization failed — {e}")
+        print("[startup] Running in limited mode. Some features may be unavailable.")
+        services_available = False
+
+
+async def shutdown_services():
+    """Shutdown external services."""
+    global ollama_client
+    print("[shutdown] Closing Ollama client...")
+    try:
+        if ollama_client is not None:
+            await ollama_client.aclose()
+    except Exception:
+        pass
+    print("[shutdown] Done.")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown logic."""
-    global ollama_client, compiled_graph
-
-    print("[startup] Initializing Agentic Insurance Advisor...")
-
-    # Build Ollama client
-    ollama_client = OllamaClient(
-        host=settings.OLLAMA_HOST,
-        model=settings.OLLAMA_MODEL,
-        embed_model=settings.OLLAMA_EMBED_MODEL,
-        timeout=settings.OLLAMA_TIMEOUT,
-    )
-
-    # Build and compile the LangGraph
-    compiled_graph = build_graph(ollama_client)
-    print("[startup] LangGraph compiled successfully.")
-
-    # Pre-warm Ollama (avoids cold-start latency on first user request)
-    try:
-        print(f"[startup] Warming up Ollama model {settings.OLLAMA_MODEL}...")
-        await ollama_client.chat(
-            [{"role": "user", "content": "ping"}],
-            max_tokens=5,
-        )
-        print("[startup] Ollama warm-up complete.")
-    except Exception as e:
-        print(f"[startup] WARNING: Ollama warm-up failed — {e}. Continuing anyway.")
-
-    # Expose to routers via app state
-    app.state.ollama_client = ollama_client
-    app.state.compiled_graph = compiled_graph
-
+    # Non-blocking startup - initialize services in background
+    await initialize_services()
     yield
-
-    # Shutdown
-    print("[shutdown] Closing Ollama client...")
-    try:
-        await ollama_client.aclose()
-    except Exception:
-        pass
-    print("[shutdown] Done.")
+    await shutdown_services()
 
 
 # ─── Application ──────────────────────────────────────────────────────────────

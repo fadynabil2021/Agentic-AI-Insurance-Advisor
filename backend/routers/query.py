@@ -103,6 +103,13 @@ async def run_query(request: QueryRequest, req: Request):
     # Get compiled graph from app state
     compiled_graph = req.app.state.compiled_graph
 
+    # Check if graph was initialized (services available)
+    if compiled_graph is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Service unavailable: Agent graph not initialized. External services (Ollama, ChromaDB) may be unavailable.",
+        )
+
     try:
         config = {
             "configurable": {

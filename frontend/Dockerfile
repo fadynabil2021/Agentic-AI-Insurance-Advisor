@@ -18,5 +18,5 @@ COPY --chown=node:node . .
 # Expose port
 EXPOSE 3000
 
-# Start development server binding to all interfaces
-CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]
+# Start development server binding to all interfaces and custom port
+CMD sh -c "npm run dev -- -H 0.0.0.0 -p ${PORT:-3000}"

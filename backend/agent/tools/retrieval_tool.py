@@ -131,6 +131,11 @@ async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
         # Reuse singleton client from chroma_client module (avoids per-call overhead)
         from clients.chroma_client import get_chroma_client
         client = get_chroma_client()
+
+        # If client is None, ChromaDB is not available
+        if client is None:
+            return {"packages": {}, "rules": {}, "snippets": {}}
+
         ef = OllamaEmbeddingFunction(
             model_name=settings.OLLAMA_EMBED_MODEL,
             url=f"{settings.OLLAMA_HOST}/api/embeddings",

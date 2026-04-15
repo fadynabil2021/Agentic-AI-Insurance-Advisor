@@ -9,14 +9,17 @@ from config import settings
 _redis_client: aioredis.Redis | None = None
 
 
-def get_redis() -> aioredis.Redis:
+def get_redis() -> aioredis.Redis | None:
     global _redis_client
     if _redis_client is None:
-        _redis_client = aioredis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-        )
+        try:
+            _redis_client = aioredis.from_url(
+                settings.REDIS_URL,
+                encoding="utf-8",
+                decode_responses=True,
+            )
+        except Exception:
+            return None
     return _redis_client
 
 
@@ -29,6 +32,8 @@ async def get_cached_response(user_request: str) -> dict | None:
     """Return cached response if present, else None."""
     try:
         r = get_redis()
+        if r is None:
+            return None
         raw = await r.get(make_cache_key(user_request))
         if raw:
             return json.loads(raw)
@@ -41,6 +46,8 @@ async def cache_response(user_request: str, response: dict) -> None:
     """Store response in Redis with TTL."""
     try:
         r = get_redis()
+        if r is None:
+            return
         await r.setex(
             make_cache_key(user_request),
             settings.CACHE_TTL_SECONDS,
@@ -54,6 +61,8 @@ async def redis_health_check() -> bool:
     """Ping Redis to check connectivity."""
     try:
         r = get_redis()
+        if r is None:
+            return False
         return await r.ping()
     except Exception:
         return False
