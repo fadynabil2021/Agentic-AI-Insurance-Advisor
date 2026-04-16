@@ -1,9 +1,15 @@
+[phases.setup]
+nixPkgs = ["python3", "gcc", "stdenv.cc.cc.lib"]
+
 [phases.install]
-dependsOn = ["python-3.12"]
-cmds = ["pip install --no-cache-dir -r backend/requirements.txt"]
+dependsOn = ["setup"]
+cmds = [
+    "python3 -m venv /opt/venv",
+    "/opt/venv/bin/pip install --no-cache-dir -r backend/requirements.txt"
+]
 
 [phases.build]
 cmds = ["echo 'Build complete'"]
 
 [start]
-cmd = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+cmd = "/opt/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
