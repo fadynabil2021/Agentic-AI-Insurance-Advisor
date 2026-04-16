@@ -69,11 +69,12 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
             state["execution_trace"].append(f"intent_parser: attempt {attempt+1} failed — {e}")
 
     if parsed is None:
-        state["error"] = {"type": "PARSE_ERROR", "message": "Failed to parse intent after 3 attempts"}
-        state["execution_trace"].append("intent_parser: FAILED to parse intent, routing to fallback")
+        error_msg = f"Failed to parse intent after 3 attempts. Raw response: {raw[:200]}..."
+        state["error"] = {"type": "PARSE_ERROR", "message": error_msg}
+        state["execution_trace"].append(f"intent_parser: FAILED to parse intent. Raw: {raw}")
         if span:
             try:
-                span.end(output={"error": state["error"]})
+                span.end(output={"error": state["error"], "raw": raw})
             except Exception:
                 pass
         return state
