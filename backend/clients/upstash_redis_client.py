@@ -3,24 +3,24 @@ Upstash Redis client for cloud-native caching.
 Self-contained singleton — callers use get_cached_response / cache_response directly.
 Credentials are read from settings (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN).
 """
-from upstash_redis import AsyncRedis
+from upstash_redis.asyncio import Redis
 from typing import Optional
 import hashlib
 import json
 
 from config import settings
 
-_redis_client: Optional[AsyncRedis] = None
+_redis_client: Optional[Redis] = None
 
 
-def _get_client() -> Optional[AsyncRedis]:
+def _get_client() -> Optional[Redis]:
     """Lazy-initialise the Upstash Redis singleton."""
     global _redis_client
     if _redis_client is None:
         if not settings.UPSTASH_REDIS_REST_URL or not settings.UPSTASH_REDIS_REST_TOKEN:
             return None
         try:
-            _redis_client = AsyncRedis(
+            _redis_client = Redis(
                 url=settings.UPSTASH_REDIS_REST_URL,
                 token=settings.UPSTASH_REDIS_REST_TOKEN,
             )

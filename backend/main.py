@@ -108,7 +108,7 @@ ALLOWED_ORIGINS = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o for o in ALLOWED_ORIGINS if o],
-    allow_origin_regex=r"https://.*\.railway\.app",
+    allow_origin_regex=r"https://.*\.(railway\.app|vercel\.app)",
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "X-Request-ID"],
     allow_credentials=False,

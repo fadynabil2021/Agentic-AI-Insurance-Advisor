@@ -38,8 +38,8 @@ async def check_pinecone() -> bool:
 async def check_upstash_redis() -> bool:
     """Check if Upstash Redis is reachable."""
     try:
-        from upstash_redis import AsyncRedis
-        redis_client = AsyncRedis(
+        from upstash_redis.asyncio import Redis
+        redis_client = Redis(
             url=settings.UPSTASH_REDIS_REST_URL,
             token=settings.UPSTASH_REDIS_REST_TOKEN,
         )
