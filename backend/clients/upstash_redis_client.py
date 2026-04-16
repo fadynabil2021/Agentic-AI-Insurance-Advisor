@@ -1,13 +1,11 @@
 """
 Upstash Redis client for cloud-native caching.
-Self-contained singleton — callers use get_cached_response / cache_response directly.
-Credentials are read from settings (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN).
+Self-contained singleton using the upstash-redis 1.0.0 asyncio pattern.
 """
-from upstash_redis.asyncio import Redis
-from typing import Optional
 import hashlib
 import json
-
+from typing import Optional
+from upstash_redis.asyncio import Redis
 from config import settings
 
 _redis_client: Optional[Redis] = None
@@ -20,11 +18,13 @@ def _get_client() -> Optional[Redis]:
         if not settings.UPSTASH_REDIS_REST_URL or not settings.UPSTASH_REDIS_REST_TOKEN:
             return None
         try:
+            # upstash_redis.asyncio.Redis is the correct class for version 1.0.0+
             _redis_client = Redis(
                 url=settings.UPSTASH_REDIS_REST_URL,
                 token=settings.UPSTASH_REDIS_REST_TOKEN,
             )
-        except Exception:
+        except Exception as e:
+            print(f"[redis] Failed to initialize client: {e}")
             return None
     return _redis_client
 
@@ -41,7 +41,7 @@ async def get_cached_response(user_request: str) -> Optional[dict]:
             return None
         raw = await client.get(make_cache_key(user_request))
         if raw:
-            return json.loads(raw)
+            return json.loads(raw) if isinstance(raw, str) else raw
     except Exception:
         pass
     return None

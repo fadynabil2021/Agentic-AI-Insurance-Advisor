@@ -49,11 +49,11 @@ async def check_pinecone() -> bool:
 async def check_upstash_redis() -> bool:
     """Check if Upstash Redis is reachable."""
     try:
-        from upstash_redis import AsyncRedis
+        from upstash_redis.asyncio import Redis
         if not settings.UPSTASH_REDIS_REST_URL:
             print("[health] WARNING: UPSTASH_REDIS_REST_URL is missing")
             return False
-        redis_client = AsyncRedis(
+        redis_client = Redis(
             url=settings.UPSTASH_REDIS_REST_URL,
             token=settings.UPSTASH_REDIS_REST_TOKEN,
         )
