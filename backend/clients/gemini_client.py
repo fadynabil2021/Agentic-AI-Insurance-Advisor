@@ -8,7 +8,7 @@ import asyncio
 import os
 
 class GeminiClient:
-    def __init__(self, api_key: str, model: str = "gemini-1.5-flash", timeout: int = 120):
+    def __init__(self, api_key: str, model: str = "gemini-1.5-flash-latest", timeout: int = 120):
         self.api_key = api_key
         self.model_name = model
         self.timeout = timeout
@@ -63,18 +63,29 @@ class GeminiClient:
 
             # Single-turn or simple history mapping
             if len(conversation) <= 1:
-                prompt = conversation[0]["parts"][0] if conversation else "Respond with empty JSON {}"
+                prompt = conversation[0]["parts"][0] if conversation else "Respond with {}"
                 response = await asyncio.to_thread(model.generate_content, prompt)
             else:
                 chat = model.start_chat(history=conversation[:-1])
                 response = await asyncio.to_thread(chat.send_message, conversation[-1]["parts"][0])
 
-            if not response or not response.text:
-                raise RuntimeError("Gemini returned an empty response or was blocked by safety filters.")
-                
-            return response.text
+            # Improved error feedback
+            if not response or not response.candidates:
+                raise RuntimeError("Gemini returned no candidates. Check safety filters or quota.")
+            
+            try:
+                return response.text
+            except ValueError:
+                # If text is blocked by safety filters
+                feedback = getattr(response, 'prompt_feedback', 'No feedback available')
+                raise RuntimeError(f"Gemini response blocked or empty. Feedback: {feedback}")
 
         except Exception as e:
+            # Try a fallback model if 404
+            if "not found" in str(e).lower() and self.model_name != "gemini-1.5-flash":
+                print(f"[gemini] {self.model_name} not found, falling back to gemini-1.5-flash...")
+                self.model_name = "gemini-1.5-flash"
+                return await self.chat(messages, temperature, max_tokens, response_json)
             raise RuntimeError(f"Gemini API call failed: {e}") from e
 
     async def embed(self, text: str, task_type: str = "retrieval_query") -> List[float]:
@@ -96,10 +107,13 @@ class GeminiClient:
         """Check if Gemini API is reachable."""
         try:
             self._configure()
+            # Use a slightly more robust model identifier for the health check
             test_model = genai.GenerativeModel(self.model_name)
-            response = await asyncio.to_thread(test_model.generate_content, "ping")
-            return response is not None and bool(response.text)
-        except Exception:
+            response = await asyncio.to_thread(test_model.generate_content, "Say OK")
+            # If we get any response back, consider it healthy
+            return response is not None and (len(response.candidates) > 0)
+        except Exception as e:
+            print(f"[gemini] Health check detailed failure: {e}")
             return False
 
     async def aclose(self):
