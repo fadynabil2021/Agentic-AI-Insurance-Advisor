@@ -57,40 +57,43 @@ def merge_retrieval_results(packages: list, rules: list, snippets: list) -> list
 
     # Add package documents
     for match in packages:
-        metadata = match.get("metadata", {})
+        if not match: continue
+        metadata = match.get("metadata") or {}
         merged.append({
             "type": "package",
-            "id": match.get("id", ""),
+            "id": match.get("id") or "unknown",
             "content": metadata.get("content", ""),
-            "name": metadata.get("name", match.get("id", "")),
+            "name": metadata.get("name", match.get("id", "Unknown Plan")),
             "network": metadata.get("network", "B"),
-            "price_range": metadata.get("price_range", [0, 0]),
+            "price_range": metadata.get("price_range", "[0,0]"),
             "coverage": metadata.get("coverage", "Medium"),
             "budget_tier": metadata.get("budget_tier", "medium"),
             "metadata": metadata,
-            "score": match.get("score", 0),
+            "score": match.get("score") or 0.0,
         })
 
     # Add benchmark rules
     for match in rules:
-        metadata = match.get("metadata", {})
+        if not match: continue
+        metadata = match.get("metadata") or {}
         merged.append({
             "type": "rule",
-            "id": match.get("id", ""),
+            "id": match.get("id") or "unknown",
             "content": metadata.get("content", ""),
             "metadata": metadata,
-            "score": match.get("score", 0),
+            "score": match.get("score") or 0.0,
         })
 
     # Add knowledge snippets
     for match in snippets:
-        metadata = match.get("metadata", {})
+        if not match: continue
+        metadata = match.get("metadata") or {}
         merged.append({
             "type": "snippet",
-            "id": match.get("id", ""),
+            "id": match.get("id") or "unknown",
             "content": metadata.get("content", ""),
             "metadata": metadata,
-            "score": match.get("score", 0),
+            "score": match.get("score") or 0.0,
         })
 
     return merged
