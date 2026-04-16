@@ -15,12 +15,19 @@ async def check_gemini() -> bool:
     """Check if Gemini API is reachable."""
     try:
         from clients.gemini_client import GeminiClient
+        if not settings.GEMINI_API_KEY:
+            print("[health] WARNING: GEMINI_API_KEY is missing")
+            return False
         client = GeminiClient(
             api_key=settings.GEMINI_API_KEY,
             model=settings.GEMINI_MODEL,
         )
-        return await client.health_check()
-    except Exception:
+        is_healthy = await client.health_check()
+        if not is_healthy:
+            print("[health] WARNING: Gemini health check failed (API reachable but returned no content)")
+        return is_healthy
+    except Exception as e:
+        print(f"[health] ERROR: Gemini check failed — {e}")
         return False
 
 
@@ -28,24 +35,32 @@ async def check_pinecone() -> bool:
     """Check if Pinecone index exists and is accessible."""
     try:
         from pinecone import Pinecone
+        if not settings.PINECONE_API_KEY:
+            print("[health] WARNING: PINECONE_API_KEY is missing")
+            return False
         pc = Pinecone(api_key=settings.PINECONE_API_KEY)
         indexes = pc.list_indexes().names()
         return settings.PINECONE_INDEX_NAME in indexes
-    except Exception:
+    except Exception as e:
+        print(f"[health] ERROR: Pinecone check failed — {e}")
         return False
 
 
 async def check_upstash_redis() -> bool:
     """Check if Upstash Redis is reachable."""
     try:
-        from upstash_redis.asyncio import Redis
-        redis_client = Redis(
+        from upstash_redis import AsyncRedis
+        if not settings.UPSTASH_REDIS_REST_URL:
+            print("[health] WARNING: UPSTASH_REDIS_REST_URL is missing")
+            return False
+        redis_client = AsyncRedis(
             url=settings.UPSTASH_REDIS_REST_URL,
             token=settings.UPSTASH_REDIS_REST_TOKEN,
         )
         result = await redis_client.ping()
         return result == "PONG"
-    except Exception:
+    except Exception as e:
+        print(f"[health] ERROR: Upstash Redis check failed — {e}")
         return False
 
 
