@@ -98,9 +98,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://frontend:3000"],
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Request-ID"],
+    allow_origins=["*"],  # Allow Vercel and other origins for demo
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ─── Request ID Middleware ─────────────────────────────────────────────────────
