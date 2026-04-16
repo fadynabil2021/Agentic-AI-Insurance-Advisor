@@ -3,6 +3,9 @@ FastAPI application entry point.
 Handles lifespan (startup/shutdown), middleware, and router registration.
 """
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import time
 import uuid
 from contextlib import asynccontextmanager
