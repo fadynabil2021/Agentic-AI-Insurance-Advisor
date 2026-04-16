@@ -99,6 +99,7 @@ app = FastAPI(
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://frontend:3000",
+    "https://agentic-ai-insurance-advisor.vercel.app",
     # Railway internal
     "https://*.railway.app",
     # Vercel (set FRONTEND_URL env var to your deployed URL)
