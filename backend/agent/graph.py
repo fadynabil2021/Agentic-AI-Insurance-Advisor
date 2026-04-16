@@ -12,7 +12,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from agent.state import AgentState
 from agent.routing import route_after_validation, route_after_scoring
-from clients.ollama_client import OllamaClient
+from clients.gemini_client import GeminiClient
 from config import settings
 
 
@@ -22,7 +22,7 @@ def _get_trace(config: dict):
     return configurable.get("langfuse_trace")
 
 
-def build_graph(ollama_client: OllamaClient) -> any:
+def build_graph(gemini_client: GeminiClient) -> any:
     """
     Build and compile the LangGraph StateGraph.
     Each node wrapper extracts the Langfuse trace from config["configurable"],
@@ -42,13 +42,13 @@ def build_graph(ollama_client: OllamaClient) -> any:
     # ── Node wrappers (inject clients via closure, trace via config) ───────
 
     async def _intent_parser(state: AgentState, config: dict) -> AgentState:
-        return await intent_parser_node(state, ollama_client, _get_trace(config))
+        return await intent_parser_node(state, gemini_client, _get_trace(config))
 
     def _validator(state: AgentState, config: dict) -> AgentState:
         return validator_node(state, _get_trace(config))
 
     async def _planner(state: AgentState, config: dict) -> AgentState:
-        return await planner_node(state, ollama_client, _get_trace(config))
+        return await planner_node(state, gemini_client, _get_trace(config))
 
     def _clarifier(state: AgentState, config: dict) -> AgentState:
         return clarifier_node(state, _get_trace(config))
@@ -63,13 +63,13 @@ def build_graph(ollama_client: OllamaClient) -> any:
         return scoring_tool_node(state, _get_trace(config))
 
     async def _comparison_tool(state: AgentState, config: dict) -> AgentState:
-        return await comparison_tool_node(state, ollama_client, _get_trace(config))
+        return await comparison_tool_node(state, gemini_client, _get_trace(config))
 
     async def _output_composer(state: AgentState, config: dict) -> AgentState:
-        return await output_composer_node(state, ollama_client, _get_trace(config))
+        return await output_composer_node(state, gemini_client, _get_trace(config))
 
     async def _evaluator(state: AgentState, config: dict) -> AgentState:
-        return await evaluator_node(state, ollama_client, _get_trace(config))
+        return await evaluator_node(state, gemini_client, _get_trace(config))
 
     # ── Build graph ────────────────────────────────────────────────────────
 

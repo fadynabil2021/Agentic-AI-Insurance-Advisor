@@ -6,7 +6,7 @@ import time
 import uuid
 from fastapi import APIRouter, Request, HTTPException
 from models.schemas import QueryRequest, AgentResponse, Recommendation, ComparisonMatrix
-from clients.redis_client import get_cached_response, cache_response
+from clients.upstash_redis_client import get_cached_response, cache_response
 from clients.langfuse_client import safe_create_trace
 from agent.graph import make_initial_state
 from agent.state import ConfidenceLevel
@@ -107,7 +107,7 @@ async def run_query(request: QueryRequest, req: Request):
     if compiled_graph is None:
         raise HTTPException(
             status_code=503,
-            detail="Service unavailable: Agent graph not initialized. External services (Ollama, ChromaDB) may be unavailable.",
+            detail="Service unavailable: Agent graph not initialized. External services (Gemini, Pinecone) may be unavailable.",
         )
 
     try:

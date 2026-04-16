@@ -12,8 +12,11 @@ COPY --chown=node:node package.json package-lock.json* ./
 # Install dependencies (ignoring scripts to avoid issues)
 RUN npm install --legacy-peer-deps
 
-# Build the production application
-RUN npm run build
+# Copy source code
+COPY --chown=node:node . .
 
-# Start production server
-CMD ["sh", "-c", "npm run start -- -p ${PORT:-3000}"]
+# Expose port
+EXPOSE 3000
+
+# Start development server binding to all interfaces
+CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]

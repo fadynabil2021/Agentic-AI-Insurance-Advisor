@@ -65,7 +65,7 @@ class TraceResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     version: str
-    services: dict  # {ollama: bool, chromadb: bool, langfuse: bool, redis: bool}
+    services: dict  # {gemini: bool, pinecone: bool, langfuse: bool, redis: bool}
 
 
 # ─── Eval Request / Response ─────────────────────────────────────────────────

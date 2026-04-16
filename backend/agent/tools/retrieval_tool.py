@@ -1,14 +1,11 @@
 """
-Retrieval Tool Node — queries ChromaDB vector store for relevant packages,
+Retrieval Tool Node — queries Pinecone vector store for relevant packages,
 rules, and knowledge snippets.
-Embedding model: nomic-embed-text via Ollama.
+Embedding model: Google text-embedding-004 via Gemini API.
 """
 import asyncio
 from agent.state import AgentState
 from clients.langfuse_client import safe_create_span
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
 from config import settings
 
 
@@ -22,8 +19,8 @@ def get_compatible_budgets(budget: str) -> list[str]:
     return mapping.get(budget.lower(), ["low", "medium", "high"])
 
 
-def build_metadata_filter(entities: dict) -> dict:
-    """Build ChromaDB metadata $where filter from extracted entities."""
+def build_metadata_filter(entities: dict) -> dict | None:
+    """Build Pinecone metadata filter from extracted entities."""
     filters: list[dict] = []
 
     budget = entities.get("budget")
@@ -32,7 +29,7 @@ def build_metadata_filter(entities: dict) -> dict:
         filters.append({"budget_tier": {"$in": compatible}})
 
     if len(filters) == 0:
-        return {}
+        return None
     if len(filters) == 1:
         return filters[0]
     return {"$and": filters}
@@ -54,57 +51,54 @@ def build_retrieval_query(entities: dict) -> str:
     return "insurance plan for " + " ".join(parts)
 
 
-def merge_retrieval_results(packages: dict, rules: dict, snippets: dict) -> list[dict]:
-    """Merge results from multiple collections into a flat list."""
+def merge_retrieval_results(packages: list, rules: list, snippets: list) -> list[dict]:
+    """Merge results from multiple Pinecone queries into a flat list."""
     merged = []
 
     # Add package documents
-    if packages and packages.get("ids") and packages["ids"][0]:
-        for i, doc_id in enumerate(packages["ids"][0]):
-            doc = packages["documents"][0][i] if packages.get("documents") else ""
-            meta = packages["metadatas"][0][i] if packages.get("metadatas") else {}
-            merged.append({
-                "type": "package",
-                "id": doc_id,
-                "content": doc,
-                "name": meta.get("name", doc_id),
-                "network": meta.get("network", "B"),
-                "price_range": meta.get("price_range", [0, 0]),
-                "coverage": meta.get("coverage", "Medium"),
-                "budget_tier": meta.get("budget_tier", "medium"),
-                "metadata": meta,
-            })
+    for match in packages:
+        metadata = match.get("metadata", {})
+        merged.append({
+            "type": "package",
+            "id": match.get("id", ""),
+            "content": metadata.get("content", ""),
+            "name": metadata.get("name", match.get("id", "")),
+            "network": metadata.get("network", "B"),
+            "price_range": metadata.get("price_range", [0, 0]),
+            "coverage": metadata.get("coverage", "Medium"),
+            "budget_tier": metadata.get("budget_tier", "medium"),
+            "metadata": metadata,
+            "score": match.get("score", 0),
+        })
 
     # Add benchmark rules
-    if rules and rules.get("ids") and rules["ids"][0]:
-        for i, doc_id in enumerate(rules["ids"][0]):
-            doc = rules["documents"][0][i] if rules.get("documents") else ""
-            meta = rules["metadatas"][0][i] if rules.get("metadatas") else {}
-            merged.append({
-                "type": "rule",
-                "id": doc_id,
-                "content": doc,
-                "metadata": meta,
-            })
+    for match in rules:
+        metadata = match.get("metadata", {})
+        merged.append({
+            "type": "rule",
+            "id": match.get("id", ""),
+            "content": metadata.get("content", ""),
+            "metadata": metadata,
+            "score": match.get("score", 0),
+        })
 
     # Add knowledge snippets
-    if snippets and snippets.get("ids") and snippets["ids"][0]:
-        for i, doc_id in enumerate(snippets["ids"][0]):
-            doc = snippets["documents"][0][i] if snippets.get("documents") else ""
-            meta = snippets["metadatas"][0][i] if snippets.get("metadatas") else {}
-            merged.append({
-                "type": "snippet",
-                "id": doc_id,
-                "content": doc,
-                "metadata": meta,
-            })
+    for match in snippets:
+        metadata = match.get("metadata", {})
+        merged.append({
+            "type": "snippet",
+            "id": match.get("id", ""),
+            "content": metadata.get("content", ""),
+            "metadata": metadata,
+            "score": match.get("score", 0),
+        })
 
     return merged
 
 
 async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
     """
-    Node 4: Query ChromaDB for relevant packages and rules.
+    Node 4: Query Pinecone for relevant packages and rules.
     Uses cosine similarity + metadata filters.
     """
     span = safe_create_span(langfuse_trace, "retrieval_tool", {
@@ -113,12 +107,10 @@ async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
 
     state["tools_used"].append("retrieval_tool")
 
-    # Track retries: first invocation is retry_count=0, subsequent are 1, 2, ...
-    # This ensures MAX_RETRIES=2 allows exactly 2 retries after the initial call.
+    # Track retries
     current_retry = state.get("retry_count", 0)
     if current_retry > 0 or "retrieval_tool" in state["tools_used"][:-1]:
         state["retry_count"] = current_retry + 1
-    # else: first call, keep retry_count at 0
 
     entities = state.get("extracted_entities") or {}
     query = build_retrieval_query(entities)
@@ -127,53 +119,84 @@ async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
     # Build metadata filter
     meta_filter = build_metadata_filter(entities)
 
-    def _do_query():
-        # Reuse singleton client from chroma_client module (avoids per-call overhead)
-        from clients.chroma_client import get_chroma_client
-        client = get_chroma_client()
+    async def _do_query(gemini_client, pinecone_index):
+        """Query Pinecone with Gemini embeddings."""
+        if pinecone_index is None:
+            return {"packages": [], "rules": [], "snippets": []}
 
-        # If client is None, ChromaDB is not available
-        if client is None:
-            return {"packages": {}, "rules": {}, "snippets": {}}
+        # Generate embedding for query
+        try:
+            query_embedding = await gemini_client.embed(query)
+        except Exception:
+            return {"packages": [], "rules": [], "snippets": []}
 
-        ef = OllamaEmbeddingFunction(
-            model_name=settings.OLLAMA_EMBED_MODEL,
-            url=f"{settings.OLLAMA_HOST}/api/embeddings",
-        )
         results = {}
 
-        # Query packages collection
+        # Query packages namespace
         try:
-            pkg_col = client.get_collection("packages", embedding_function=ef)
-            pkg_kwargs: dict = {"query_texts": [query], "n_results": 3}
-            if meta_filter:
-                pkg_kwargs["where"] = meta_filter
-            results["packages"] = pkg_col.query(**pkg_kwargs)
+            packages_result = await pinecone_index.query(
+                vector=query_embedding,
+                top_k=3,
+                namespace="packages",
+                filter=meta_filter,
+                include_metadata=True,
+            )
+            results["packages"] = packages_result.get("matches", [])
         except Exception:
-            results["packages"] = {}
+            results["packages"] = []
 
-        # Query benchmark_rules collection
+        # Query benchmark_rules namespace
         try:
-            rules_col = client.get_collection("benchmark_rules", embedding_function=ef)
-            results["rules"] = rules_col.query(query_texts=[query], n_results=5)
+            rules_result = await pinecone_index.query(
+                vector=query_embedding,
+                top_k=5,
+                namespace="benchmark_rules",
+                include_metadata=True,
+            )
+            results["rules"] = rules_result.get("matches", [])
         except Exception:
-            results["rules"] = {}
+            results["rules"] = []
 
-        # Query knowledge_snippets collection
+        # Query knowledge_snippets namespace
         try:
-            snip_col = client.get_collection("knowledge_snippets", embedding_function=ef)
-            results["snippets"] = snip_col.query(query_texts=[query], n_results=3)
+            snippets_result = await pinecone_index.query(
+                vector=query_embedding,
+                top_k=3,
+                namespace="knowledge_snippets",
+                include_metadata=True,
+            )
+            results["snippets"] = snippets_result.get("matches", [])
         except Exception:
-            results["snippets"] = {}
+            results["snippets"] = []
 
         return results
 
+    # Get clients
+    from clients.gemini_client import GeminiClient
+    from clients.pinecone_client import get_pinecone_client, get_or_create_index
+
+    gemini_client = GeminiClient(
+        api_key=settings.GEMINI_API_KEY,
+        model=settings.GEMINI_MODEL,
+        timeout=settings.GEMINI_TIMEOUT,
+    )
+
+    pinecone_client = get_pinecone_client(settings.PINECONE_API_KEY)
+    pinecone_index = None
+
+    if pinecone_client:
+        pinecone_index = get_or_create_index(
+            pinecone_client,
+            settings.PINECONE_INDEX_NAME,
+            dimension=768,  # text-embedding-004 dimension
+        )
+
     try:
-        raw = await asyncio.to_thread(_do_query)
+        raw = await _do_query(gemini_client, pinecone_index)
         merged = merge_retrieval_results(
-            raw.get("packages", {}),
-            raw.get("rules", {}),
-            raw.get("snippets", {}),
+            raw.get("packages", []),
+            raw.get("rules", []),
+            raw.get("snippets", []),
         )
     except Exception as e:
         state["execution_trace"].append(f"retrieval_tool: ERROR — {e}")

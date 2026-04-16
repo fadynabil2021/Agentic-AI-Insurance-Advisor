@@ -1,11 +1,11 @@
 """
 Output Composer Node — synthesizes the final structured recommendation.
-LLM (Gemma 4) is used ONLY for the reasoning narrative bullets.
+LLM (Gemini API) is used ONLY for the reasoning narrative bullets.
 All structured fields (plan_name, network, price_range) are built deterministically.
 """
 import json
 from agent.state import AgentState, ConfidenceLevel
-from clients.ollama_client import OllamaClient
+from clients.gemini_client import GeminiClient
 from clients.langfuse_client import safe_create_span
 
 REASONING_SYSTEM_PROMPT = """You are a grounding engine for an insurance recommendation system.
@@ -90,7 +90,7 @@ def parse_reasoning_list(raw: str) -> list[str]:
 
 async def output_composer_node(
     state: AgentState,
-    ollama_client: OllamaClient,
+    gemini_client: GeminiClient,
     langfuse_trace,
 ) -> AgentState:
     """
@@ -158,7 +158,7 @@ async def output_composer_node(
     }
 
     try:
-        raw_reasoning = await ollama_client.chat(
+        raw_reasoning = await gemini_client.chat(
             messages=[
                 {"role": "system", "content": REASONING_SYSTEM_PROMPT},
                 {"role": "user", "content": json.dumps(reasoning_context)},

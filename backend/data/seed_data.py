@@ -1,14 +1,18 @@
 """
-ChromaDB seed script — populates all 4 knowledge base collections.
+Pinecone seed script — populates vectors for packages, rules, snippets, and profiles namespaces.
 Run via: docker compose run --rm backend python data/seed_data.py
 Or with --reset flag to wipe and re-seed.
 """
 import os
 import sys
 import asyncio
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
+from pinecone import Pinecone, ServerlessSpec
+from typing import List, Dict, Any
+
+# Ensure we can import from backend modules
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from clients.gemini_client import GeminiClient
+from config import settings
 
 # ─── Package Catalog (3 packages) ────────────────────────────────────────────
 
@@ -284,12 +288,45 @@ CUSTOMER_PROFILES = [
 ]
 
 
-def seed(chroma_host: str = "localhost", chroma_port: int = 8001, reset: bool = False):
-    print(f"[seed] Connecting to ChromaDB at {chroma_host}:{chroma_port}...")
-    client = chromadb.HttpClient(
-        host=chroma_host,
-        port=chroma_port,
-        settings=ChromaSettings(anonymized_telemetry=False),
+async def seed(reset: bool = False):
+    print("[seed] Connecting to Pinecone...")
+    api_key = settings.PINECONE_API_KEY
+    if not api_key:
+         print("Error: PINECONE_API_KEY is missing!")
+         return
+         
+    client = Pinecone(api_key=api_key)
+    index_name = settings.PINECONE_INDEX_NAME
+    dimension = 768 # text-embedding-004 dimension
+    
+    if reset:
+        try:
+            client.delete_index(index_name)
+            print(f"[seed] Deleted existing index: {index_name}")
+            # Wait for deletion
+            while index_name in client.list_indexes().names():
+                await asyncio.sleep(1)
+        except Exception:
+            pass
+
+    existing_indexes = client.list_indexes().names()
+    if index_name not in existing_indexes:
+        print(f"[seed] Creating index: {index_name}")
+        client.create_index(
+            name=index_name,
+            dimension=dimension,
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region=settings.PINECONE_ENVIRONMENT),
+        )
+        # Wait for index to be ready
+        while not client.describe_index(index_name).status["ready"]:
+            await asyncio.sleep(1)
+            
+    index = client.Index(index_name)
+    
+    gemini_client = GeminiClient(
+        api_key=settings.GEMINI_API_KEY,
+        model=settings.GEMINI_MODEL,
     )
 
     collections_data = [
@@ -299,66 +336,45 @@ def seed(chroma_host: str = "localhost", chroma_port: int = 8001, reset: bool = 
         ("customer_profiles", CUSTOMER_PROFILES, "3 documents"),
     ]
 
-    # Initialize embedding function
-    embedding_model = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
-    ollama_host = os.environ.get("OLLAMA_HOST", f"http://{chroma_host}:11434")
-    # For Docker: ollama_host is 'http://ollama:11434'
-    if chroma_host == "chromadb":
-        ollama_host = "http://ollama:11434"
-        
-    ef = OllamaEmbeddingFunction(
-        model_name=embedding_model,
-        url=f"{ollama_host}/api/embeddings",
-    )
-
-    for col_name, docs, desc in collections_data:
+    for namespace, docs, desc in collections_data:
         if reset:
-            try:
-                client.delete_collection(col_name)
-                print(f"[seed] Deleted existing collection: {col_name}")
-            except Exception:
-                pass
-
-        try:
-            col = client.get_or_create_collection(
-                name=col_name,
-                metadata={"hnsw:space": "cosine"},
-                embedding_function=ef,
-            )
-        except Exception as e:
-            print(f"[seed] ERROR creating collection {col_name}: {e}")
-            continue
-
-        # Check if already seeded
-        existing = col.count()
-        if existing > 0 and not reset:
-            print(f"[seed] Collection '{col_name}' already has {existing} docs — skipping (use --reset to force)")
-            continue
-
+             try:
+                 index.delete(delete_all=True, namespace=namespace)
+             except Exception:
+                 pass
+                 
         ids = [d["id"] for d in docs]
         documents = [d["document"] for d in docs]
         metadatas = [d["metadata"] for d in docs]
+        
+        # Merge document content into metadata for retrieval later
+        for i in range(len(metadatas)):
+            metadatas[i]["content"] = documents[i]
 
-        col.upsert(ids=ids, documents=documents, metadatas=metadatas)
-        print(f"[seed] Created collection: {col_name} ({desc})")
-
-    print("[seed] Done. All collections seeded successfully.")
-
-    # Verify
-    print("\n[seed] Verification:")
-    for col_name, _, _ in collections_data:
         try:
-            col = client.get_collection(col_name)
-            print(f"  {col_name}: {col.count()} documents")
+            print(f"[seed] Generating embeddings for {namespace}...")
+            # We'll embed one by one or in batch. Gemini has no direct batch method in our client, but we can gather.
+            embeddings = []
+            for doc in documents:
+                 emb = await gemini_client.embed(doc)
+                 embeddings.append(emb)
+                 
+            vectors = list(zip(ids, embeddings, metadatas))
+            
+            print(f"[seed] Upserting to {namespace}...")
+            index.upsert(vectors=vectors, namespace=namespace)
+            print(f"[seed] Seeded namespace: {namespace} ({desc})")
         except Exception as e:
-            print(f"  {col_name}: ERROR — {e}")
+            print(f"[seed] ERROR seeding {namespace}: {e}")
+
+    print("[seed] Done. All namespaces seeded successfully.")
+    
+    stats = index.describe_index_stats()
+    print(f"\n[seed] Verification: {stats}")
+    
+    await gemini_client.aclose()
 
 
 if __name__ == "__main__":
     reset_flag = "--reset" in sys.argv
-    host = os.environ.get("CHROMA_HOST", "localhost")
-    port = int(os.environ.get("CHROMA_PORT", "8001"))
-    # In Docker: host=chromadb, port=8000 (internal)
-    if host == "chromadb":
-        port = 8000
-    seed(chroma_host=host, chroma_port=port, reset=reset_flag)
+    asyncio.run(seed(reset=reset_flag))

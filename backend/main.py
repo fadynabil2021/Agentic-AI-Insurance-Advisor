@@ -11,62 +11,61 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config import settings
-from clients.ollama_client import OllamaClient
+from clients.gemini_client import GeminiClient
 from agent.graph import build_graph
 
 # ─── Shared Application State ─────────────────────────────────────────────────
 
-ollama_client: OllamaClient = None
+gemini_client: GeminiClient = None
 compiled_graph = None
 services_available = False
 
 
-async def initialize_services():
-    """Initialize external services (Ollama, ChromaDB, Redis, Langfuse)."""
-    global ollama_client, compiled_graph, services_available
-
+async def initialize_services(app: FastAPI):
+    """Initialize external services and store handles on app.state."""
     try:
         print("[startup] Initializing Agentic Insurance Advisor...")
 
-        # Build Ollama client
-        ollama_client = OllamaClient(
-            host=settings.OLLAMA_HOST,
-            model=settings.OLLAMA_MODEL,
-            embed_model=settings.OLLAMA_EMBED_MODEL,
-            timeout=settings.OLLAMA_TIMEOUT,
+        # Build Gemini client
+        gemini_client = GeminiClient(
+            api_key=settings.GEMINI_API_KEY,
+            model=settings.GEMINI_MODEL,
+            timeout=settings.GEMINI_TIMEOUT,
         )
 
-        # Build and compile the LangGraph
-        compiled_graph = build_graph(ollama_client)
+        # Build and compile the LangGraph — store on app.state
+        app.state.compiled_graph = build_graph(gemini_client)
+        app.state.gemini_client = gemini_client
         print("[startup] LangGraph compiled successfully.")
 
-        # Pre-warm Ollama (avoids cold-start latency on first user request)
+        # Pre-warm Gemini API
         try:
-            print(f"[startup] Warming up Ollama model {settings.OLLAMA_MODEL}...")
-            await ollama_client.chat(
+            print(f"[startup] Warming up Gemini model {settings.GEMINI_MODEL}...")
+            await gemini_client.chat(
                 [{"role": "user", "content": "ping"}],
                 max_tokens=5,
             )
-            print("[startup] Ollama warm-up complete.")
+            print("[startup] Gemini warm-up complete.")
         except Exception as e:
-            print(f"[startup] WARNING: Ollama warm-up failed — {e}. Continuing anyway.")
+            print(f"[startup] WARNING: Gemini warm-up failed — {e}. Continuing anyway.")
 
-        services_available = True
+        app.state.services_available = True
         print("[startup] All services initialized successfully.")
 
     except Exception as e:
         print(f"[startup] WARNING: Service initialization failed — {e}")
-        print("[startup] Running in limited mode. Some features may be unavailable.")
-        services_available = False
+        app.state.compiled_graph = None
+        app.state.gemini_client = None
+        app.state.services_available = False
 
 
-async def shutdown_services():
+async def shutdown_services(app: FastAPI):
     """Shutdown external services."""
-    global ollama_client
-    print("[shutdown] Closing Ollama client...")
+    print("[shutdown] Closing Gemini client...")
     try:
-        if ollama_client is not None:
-            await ollama_client.aclose()
+        client = getattr(app.state, "gemini_client", None)
+        if client is not None:
+            await client.aclose()
     except Exception:
         pass
     print("[shutdown] Done.")
@@ -75,11 +74,9 @@ async def shutdown_services():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown logic."""
-    import asyncio
-    # Non-blocking startup - initialize services in background so healthchecks pass immediately
-    asyncio.create_task(initialize_services())
+    await initialize_services(app)
     yield
-    await shutdown_services()
+    await shutdown_services(app)
 
 
 # ─── Application ──────────────────────────────────────────────────────────────
@@ -90,17 +87,28 @@ app = FastAPI(
         "A stateful, graph-based agentic AI that accepts natural-language insurance "
         "plan queries and returns grounded, structured recommendations."
     ),
-    version="1.1.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://frontend:3000",
+    # Railway internal
+    "https://*.railway.app",
+    # Vercel (set FRONTEND_URL env var to your deployed URL)
+    os.environ.get("FRONTEND_URL", ""),
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow Vercel and other origins for demo
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[o for o in ALLOWED_ORIGINS if o],
+    allow_origin_regex=r"https://.*\.railway\.app",
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Request-ID"],
+    allow_credentials=False,
 )
 
 # ─── Request ID Middleware ─────────────────────────────────────────────────────

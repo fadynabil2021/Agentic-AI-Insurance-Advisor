@@ -1,10 +1,10 @@
 """
-Intent Parser Node — uses Gemma 4 via Ollama to extract structured entities
+Intent Parser Node — uses Gemini API to extract structured entities
 from the user's natural language query.
 """
 import json
 from agent.state import AgentState, QueryType
-from clients.ollama_client import OllamaClient, safe_json_parse
+from clients.gemini_client import GeminiClient, safe_json_parse
 from clients.langfuse_client import safe_create_span
 
 INTENT_SYSTEM_PROMPT = """You are an intent extraction engine for an insurance advisor system.
@@ -44,10 +44,10 @@ REQUIRED_FIELDS_PER_QUERY_TYPE: dict[str, list[str]] = {
 }
 
 
-async def intent_parser_node(state: AgentState, ollama_client: OllamaClient, langfuse_trace) -> AgentState:
+async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, langfuse_trace) -> AgentState:
     """
     Node 1: Parse user intent and extract entities.
-    LLM call: Gemma 4 via Ollama.
+    LLM call: Gemini API.
     """
     span = safe_create_span(langfuse_trace, "intent_parser", {"user_request": state["user_request"]})
 
@@ -55,7 +55,7 @@ async def intent_parser_node(state: AgentState, ollama_client: OllamaClient, lan
     parsed = None
     for attempt in range(3):  # up to 2 retries
         try:
-            raw = await ollama_client.chat(
+            raw = await gemini_client.chat(
                 messages=[
                     {"role": "system", "content": INTENT_SYSTEM_PROMPT},
                     {"role": "user", "content": state["user_request"]},

@@ -319,19 +319,17 @@ async def run_harness(
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, "/app")
-    from clients.ollama_client import OllamaClient
+    from clients.gemini_client import GeminiClient
     from agent.graph import build_graph
     from config import settings
 
     async def main():
-        ollama = OllamaClient(
-            host=settings.OLLAMA_HOST,
-            model=settings.OLLAMA_MODEL,
-            embed_model=settings.OLLAMA_EMBED_MODEL,
-            timeout=settings.OLLAMA_TIMEOUT,
+        gemini = GeminiClient(
+            api_key=settings.GEMINI_API_KEY,
+            model=settings.GEMINI_MODEL,
         )
-        graph = build_graph(ollama)
+        graph = build_graph(gemini)
         await run_harness(graph)
-        await ollama.aclose()
+        await gemini.aclose()
 
     asyncio.run(main())

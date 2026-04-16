@@ -1,10 +1,10 @@
 """
 Planner Node — selects the execution plan (ordered list of tool names).
 Uses a static lookup table for known query types (fast, deterministic).
-Falls back to Gemma 4 only for ambiguous cases not covered by the table.
+ Falls back to Gemini API only for ambiguous cases not covered by the table.
 """
 from agent.state import AgentState, QueryType
-from clients.ollama_client import OllamaClient
+from clients.gemini_client import GeminiClient
 from clients.langfuse_client import safe_create_span
 
 # Deterministic plan for each known query type
@@ -16,7 +16,7 @@ STATIC_PLANS: dict[str, list[str]] = {
 }
 
 
-async def planner_node(state: AgentState, ollama_client: OllamaClient, langfuse_trace) -> AgentState:
+async def planner_node(state: AgentState, gemini_client: GeminiClient, langfuse_trace) -> AgentState:
     """
     Node 3: Decide which tools to invoke and in what order.
     Deterministic for all known query types; LLM only for edge cases.
@@ -40,7 +40,7 @@ async def planner_node(state: AgentState, ollama_client: OllamaClient, langfuse_
                 "[retrieval_tool, scoring_tool, comparison_tool, output_composer]. "
                 "Return ONLY a JSON array."
             )
-            raw = await ollama_client.chat(
+            raw = await gemini_client.chat(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
             )

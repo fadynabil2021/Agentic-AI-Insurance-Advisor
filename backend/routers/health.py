@@ -1,33 +1,50 @@
 """
 GET /api/v1/health — system health check endpoint.
-Checks Ollama, ChromaDB, Langfuse, and Redis connectivity.
+Checks Gemini API, Pinecone, Langfuse Cloud, and Upstash Redis connectivity.
 """
 from fastapi import APIRouter, Request
 from models.schemas import HealthResponse
 from clients.langfuse_client import langfuse_health_check
-from clients.redis_client import redis_health_check
 from config import settings
-import httpx
 import asyncio
 
 router = APIRouter(tags=["Health"])
 
 
-async def check_ollama() -> bool:
+async def check_gemini() -> bool:
+    """Check if Gemini API is reachable."""
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            r = await client.get(f"{settings.OLLAMA_HOST}/api/tags")
-            return r.status_code == 200
+        from clients.gemini_client import GeminiClient
+        client = GeminiClient(
+            api_key=settings.GEMINI_API_KEY,
+            model=settings.GEMINI_MODEL,
+        )
+        return await client.health_check()
     except Exception:
         return False
 
 
-async def check_chromadb() -> bool:
+async def check_pinecone() -> bool:
+    """Check if Pinecone index exists and is accessible."""
     try:
-        port = settings.CHROMA_PORT
-        async with httpx.AsyncClient(timeout=5) as client:
-            r = await client.get(f"http://{settings.CHROMA_HOST}:{port}/api/v1/heartbeat")
-            return r.status_code == 200
+        from pinecone import Pinecone
+        pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+        indexes = pc.list_indexes().names()
+        return settings.PINECONE_INDEX_NAME in indexes
+    except Exception:
+        return False
+
+
+async def check_upstash_redis() -> bool:
+    """Check if Upstash Redis is reachable."""
+    try:
+        from upstash_redis import AsyncRedis
+        redis_client = AsyncRedis(
+            url=settings.UPSTASH_REDIS_REST_URL,
+            token=settings.UPSTASH_REDIS_REST_TOKEN,
+        )
+        result = await redis_client.ping()
+        return result == "PONG"
     except Exception:
         return False
 
@@ -36,16 +53,16 @@ async def check_chromadb() -> bool:
 async def health_check():
     """Check connectivity of all dependent services."""
     results = await asyncio.gather(
-        check_ollama(),
-        check_chromadb(),
+        check_gemini(),
+        check_pinecone(),
         langfuse_health_check(),
-        redis_health_check(),
+        check_upstash_redis(),
         return_exceptions=True,
     )
 
     service_status = {
-        "ollama":   bool(results[0]) if not isinstance(results[0], Exception) else False,
-        "chromadb": bool(results[1]) if not isinstance(results[1], Exception) else False,
+        "gemini":   bool(results[0]) if not isinstance(results[0], Exception) else False,
+        "pinecone": bool(results[1]) if not isinstance(results[1], Exception) else False,
         "langfuse": bool(results[2]) if not isinstance(results[2], Exception) else False,
         "redis":    bool(results[3]) if not isinstance(results[3], Exception) else False,
     }
@@ -61,6 +78,6 @@ async def health_check():
 
     return HealthResponse(
         status=overall,
-        version="1.1.0",
+        version="2.0.0",
         services=service_status,
     )

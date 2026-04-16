@@ -5,7 +5,7 @@ Logs all scores to Langfuse.
 """
 import json
 from agent.state import AgentState, ConfidenceLevel
-from clients.ollama_client import OllamaClient, safe_json_parse
+from clients.gemini_client import GeminiClient, safe_json_parse
 from clients.langfuse_client import safe_create_span, safe_score
 
 GROUNDING_PROMPT = """You are an evaluation judge for an insurance recommendation system.
@@ -81,7 +81,7 @@ def _compute_deterministic_scores(state: AgentState) -> dict:
 
 async def evaluator_node(
     state: AgentState,
-    ollama_client: OllamaClient,
+    gemini_client: GeminiClient,
     langfuse_trace,
 ) -> AgentState:
     """
@@ -104,7 +104,7 @@ async def evaluator_node(
                 scoring_breakdown=json.dumps(scoring_breakdown),
                 reasoning=json.dumps(reasoning),
             )
-            raw = await ollama_client.chat(
+            raw = await gemini_client.chat(
                 messages=[
                     {"role": "system", "content": "You are an impartial evaluation judge. Return only valid JSON."},
                     {"role": "user", "content": prompt},

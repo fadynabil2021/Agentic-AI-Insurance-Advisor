@@ -5,7 +5,7 @@ Table construction is deterministic; optional Gemma 4 call for recommendation_re
 from agent.state import AgentState
 from agent.tools.scoring_constants import INDUSTRY_RISK
 from clients.langfuse_client import safe_create_span
-from clients.ollama_client import OllamaClient
+from clients.gemini_client import GeminiClient
 
 DIMENSION_LABELS = ["network", "price_range", "coverage", "score", "budget_fit", "risk_fit"]
 
@@ -37,7 +37,7 @@ def _risk_fit_label(industry: str, pkg_name: str) -> str:
 
 async def comparison_tool_node(
     state: AgentState,
-    ollama_client: OllamaClient,
+    gemini_client: GeminiClient,
     langfuse_trace,
 ) -> AgentState:
     """
@@ -120,7 +120,7 @@ async def comparison_tool_node(
             "dimensions": dimensions,
         }
         import json
-        raw_reason = await ollama_client.chat(
+        raw_reason = await gemini_client.chat(
             messages=[
                 {
                     "role": "system",

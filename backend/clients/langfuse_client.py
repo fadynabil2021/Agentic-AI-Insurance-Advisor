@@ -1,5 +1,6 @@
 """
 Langfuse client singleton.
+Defaults to Langfuse Cloud (cloud.langfuse.com) for managed observability.
 All calls are wrapped in try/except so Langfuse outages never block agent responses.
 """
 from langfuse import Langfuse
@@ -12,10 +13,12 @@ def get_langfuse() -> Langfuse | None:
     global _langfuse_client
     if _langfuse_client is None:
         try:
+            # Use provided settings or default to Langfuse Cloud
+            host = settings.LANGFUSE_HOST or "https://cloud.langfuse.com"
             _langfuse_client = Langfuse(
                 public_key=settings.LANGFUSE_PUBLIC_KEY,
                 secret_key=settings.LANGFUSE_SECRET_KEY,
-                host=settings.LANGFUSE_HOST,
+                host=host,
             )
         except Exception:
             return None
