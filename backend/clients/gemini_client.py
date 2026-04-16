@@ -91,16 +91,17 @@ class GeminiClient:
         except Exception as e:
             raise RuntimeError(f"Gemini API call failed: {e}") from e
 
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str, task_type: str = "retrieval_query") -> list[float]:
         """Get embeddings using Google's embedding model."""
         if not self._configured:
             self._configure()
 
         try:
-            embedding_model = genai.GenerativeModel("models/text-embedding-004")
             result = await asyncio.to_thread(
-                embedding_model.embed_content,
-                text
+                genai.embed_content,
+                model="models/text-embedding-004",
+                content=text,
+                task_type=task_type,
             )
             return result["embedding"]
         except Exception as e:

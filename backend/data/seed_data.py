@@ -356,7 +356,7 @@ async def seed(reset: bool = False):
             # We'll embed one by one or in batch. Gemini has no direct batch method in our client, but we can gather.
             embeddings = []
             for doc in documents:
-                 emb = await gemini_client.embed(doc)
+                 emb = await gemini_client.embed(doc, task_type="retrieval_document")
                  embeddings.append(emb)
                  
             vectors = list(zip(ids, embeddings, metadatas))
