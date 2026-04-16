@@ -26,40 +26,34 @@ services_available = False
 
 async def initialize_services(app: FastAPI):
     """Initialize external services and store handles on app.state."""
+    print("[startup] Initializing Agentic Insurance Advisor...")
+
+    # Build Gemini client
+    gemini_client = GeminiClient(
+        api_key=settings.GEMINI_API_KEY,
+        model=settings.GEMINI_MODEL,
+        timeout=settings.GEMINI_TIMEOUT,
+    )
+
+    # ALWAYS build and compile the LangGraph — don't block on pings
+    app.state.compiled_graph = build_graph(gemini_client)
+    app.state.gemini_client = gemini_client
+    print("[startup] LangGraph compiled successfully.")
+
+    # Attempt to pre-warm Gemini (non-fatal)
     try:
-        print("[startup] Initializing Agentic Insurance Advisor...")
-
-        # Build Gemini client
-        gemini_client = GeminiClient(
-            api_key=settings.GEMINI_API_KEY,
-            model=settings.GEMINI_MODEL,
-            timeout=settings.GEMINI_TIMEOUT,
+        print(f"[startup] Warming up Gemini model {settings.GEMINI_MODEL}...")
+        await gemini_client.chat(
+            [{"role": "user", "content": "ping"}],
+            max_tokens=5,
+            response_json=False,  # faster for warmup
         )
-
-        # Build and compile the LangGraph — store on app.state
-        app.state.compiled_graph = build_graph(gemini_client)
-        app.state.gemini_client = gemini_client
-        print("[startup] LangGraph compiled successfully.")
-
-        # Pre-warm Gemini API
-        try:
-            print(f"[startup] Warming up Gemini model {settings.GEMINI_MODEL}...")
-            await gemini_client.chat(
-                [{"role": "user", "content": "ping"}],
-                max_tokens=5,
-            )
-            print("[startup] Gemini warm-up complete.")
-        except Exception as e:
-            print(f"[startup] WARNING: Gemini warm-up failed — {e}. Continuing anyway.")
-
-        app.state.services_available = True
-        print("[startup] All services initialized successfully.")
-
+        print("[startup] Gemini warm-up complete.")
     except Exception as e:
-        print(f"[startup] WARNING: Service initialization failed — {e}")
-        app.state.compiled_graph = None
-        app.state.gemini_client = None
-        app.state.services_available = False
+        print(f"[startup] WARNING: Gemini warm-up failed — {e}. Graph will attempt again on first request.")
+
+    app.state.services_available = True
+    print("[startup] Services ready for requests.")
 
 
 async def shutdown_services(app: FastAPI):
