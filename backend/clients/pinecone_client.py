@@ -21,7 +21,7 @@ def get_pinecone_client(api_key: str) -> Optional[Pinecone]:
     return _pinecone_client
 
 
-def get_or_create_index(
+async def get_or_create_index(
     client: Pinecone,
     index_name: str,
     dimension: int = 768,
@@ -42,7 +42,7 @@ def get_or_create_index(
             )
             # Wait for index to be ready
             while not client.describe_index(index_name).status["ready"]:
-                asyncio.sleep(1)
+                await asyncio.sleep(1)
 
         return client.Index(index_name)
     except Exception as e:

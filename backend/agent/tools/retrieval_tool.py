@@ -134,38 +134,38 @@ async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
 
         # Query packages namespace
         try:
-            packages_result = await pinecone_index.query(
-                vector=query_embedding,
+            packages_result = await query_vectors_async(
+                pinecone_index,
+                query_vector=query_embedding,
                 top_k=3,
                 namespace="packages",
-                filter=meta_filter,
-                include_metadata=True,
+                filter_dict=meta_filter,
             )
-            results["packages"] = packages_result.get("matches", [])
+            results["packages"] = packages_result.get("matches", []) if packages_result else []
         except Exception:
             results["packages"] = []
 
         # Query benchmark_rules namespace
         try:
-            rules_result = await pinecone_index.query(
-                vector=query_embedding,
+            rules_result = await query_vectors_async(
+                pinecone_index,
+                query_vector=query_embedding,
                 top_k=5,
                 namespace="benchmark_rules",
-                include_metadata=True,
             )
-            results["rules"] = rules_result.get("matches", [])
+            results["rules"] = rules_result.get("matches", []) if rules_result else []
         except Exception:
             results["rules"] = []
 
         # Query knowledge_snippets namespace
         try:
-            snippets_result = await pinecone_index.query(
-                vector=query_embedding,
+            snippets_result = await query_vectors_async(
+                pinecone_index,
+                query_vector=query_embedding,
                 top_k=3,
                 namespace="knowledge_snippets",
-                include_metadata=True,
             )
-            results["snippets"] = snippets_result.get("matches", [])
+            results["snippets"] = snippets_result.get("matches", []) if snippets_result else []
         except Exception:
             results["snippets"] = []
 
@@ -173,7 +173,7 @@ async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
 
     # Get clients
     from clients.gemini_client import GeminiClient
-    from clients.pinecone_client import get_pinecone_client, get_or_create_index
+    from clients.pinecone_client import get_pinecone_client, get_or_create_index, query_vectors_async
 
     gemini_client = GeminiClient(
         api_key=settings.GEMINI_API_KEY,
@@ -185,7 +185,7 @@ async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
     pinecone_index = None
 
     if pinecone_client:
-        pinecone_index = get_or_create_index(
+        pinecone_index = await get_or_create_index(
             pinecone_client,
             settings.PINECONE_INDEX_NAME,
             dimension=768,  # text-embedding-004 dimension
