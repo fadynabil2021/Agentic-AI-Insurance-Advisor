@@ -53,8 +53,11 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
 
     raw = None
     parsed = None
+    import asyncio
     for attempt in range(3):  # up to 2 retries
         try:
+            if attempt > 0:
+                await asyncio.sleep(1)  # Free tier rate limit backoff
             raw = await gemini_client.chat(
                 messages=[
                     {"role": "system", "content": INTENT_SYSTEM_PROMPT},
