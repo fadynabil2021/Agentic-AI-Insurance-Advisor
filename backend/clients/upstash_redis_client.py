@@ -2,7 +2,7 @@
 Upstash Redis client for serverless Redis access.
 Replaces local Redis for cloud-native deployment.
 """
-from upstash_redis import AsyncRedis
+from upstash_redis.asyncio import Redis as AsyncRedis
 from typing import Optional
 import hashlib
 import json
