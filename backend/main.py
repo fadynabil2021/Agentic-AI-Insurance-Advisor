@@ -79,6 +79,7 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown logic."""
     # Non-blocking startup - initialize services in background
     await initialize_services()
+    app.state.compiled_graph = compiled_graph
     yield
     await shutdown_services()
 
