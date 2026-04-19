@@ -188,7 +188,7 @@ async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
         pinecone_index = await get_or_create_index(
             pinecone_client,
             settings.PINECONE_INDEX_NAME,
-            dimension=768,  # text-embedding-004 dimension
+            dimension=3072,  # gemini-embedding-001 dimension
         )
 
     try:

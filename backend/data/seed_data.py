@@ -297,7 +297,7 @@ async def seed(reset: bool = False):
          
     client = Pinecone(api_key=api_key)
     index_name = settings.PINECONE_INDEX_NAME
-    dimension = 768 # text-embedding-004 dimension
+    dimension = 3072 # gemini-embedding-001 dimension
     
     if reset:
         try:
