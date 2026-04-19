@@ -110,6 +110,8 @@ class GeminiClient:
     async def health_check(self) -> bool:
         """Check if Gemini API is reachable."""
         try:
+            if not self._configured:
+                self._configure()
             # Simple test - try to generate a minimal response
             test_model = genai.GenerativeModel(self.model_name)
             response = await asyncio.to_thread(

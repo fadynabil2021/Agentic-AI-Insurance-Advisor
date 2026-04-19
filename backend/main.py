@@ -99,10 +99,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://frontend:3000"],
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Request-ID"],
+    allow_origins=["*"],  # Allow all origins so Vercel can connect seamlessly
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
+@app.get("/")
+def read_root():
+    return {"status": "Agentic Insurance Advisor API is running successfully!"}
 
 # ─── Request ID Middleware ─────────────────────────────────────────────────────
 
