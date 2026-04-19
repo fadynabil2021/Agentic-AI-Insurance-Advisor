@@ -8,16 +8,14 @@ from agent.state import AgentState, ConfidenceLevel
 from clients.gemini_client import GeminiClient
 from clients.langfuse_client import safe_create_span
 
-REASONING_SYSTEM_PROMPT = """You are a grounding engine for an insurance recommendation system.
-Based ONLY on the provided scoring data, generate 3-5 concise reasoning bullets explaining
-why the selected package was chosen.
+REASONING_SYSTEM_PROMPT = """Based ONLY on the provided scoring data, generate 3-5 concise reasoning bullets explaining why the selected package was chosen.
 
 Rules:
 - Each bullet MUST reference at least one specific data point (score, rule, entity value)
 - Do NOT introduce new information not present in the scoring data
-- Do NOT express certainty beyond what the score supports
-- Return ONLY a JSON array of strings: ["reason1", "reason2", ...]
-- No preamble, no markdown, no explanation outside the JSON array"""
+- Wrap your final answer (the bullets) inside <answer> and </answer> tags.
+- Inside the tags, provide only plain text bullets, one per line, starting with a dash (-).
+- Do NOT return JSON. No preamble, no explanation outside the tags."""
 
 
 def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: dict) -> str:
@@ -69,21 +67,18 @@ def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: di
 def parse_reasoning_list(raw: str) -> list[str]:
     """Extract a list of strings from raw Gemma 4 output."""
     text = raw.strip()
-    # Strip markdown fences
-    if text.startswith("```"):
+    
+    # Try to extract content between <answer> tags
+    import re
+    match = re.search(r'<answer>(.*?)</answer>', text, re.DOTALL | re.IGNORECASE)
+    if match:
+        text = match.group(1).strip()
+    elif text.startswith("```"):
+        # Fallback for markdown fences
         lines = text.split("\n")
         text = "\n".join(l for l in lines[1:] if l.strip() != "```").strip()
-    # Find JSON array
-    start = text.find("[")
-    end = text.rfind("]")
-    if start != -1 and end != -1:
-        try:
-            items = json.loads(text[start:end+1])
-            if isinstance(items, list):
-                return [str(i) for i in items[:5]]
-        except json.JSONDecodeError:
-            pass
-    # Fallback: split by newlines and clean up
+        
+    # Just split by newlines and clean up
     lines = [l.lstrip("•-* ").strip() for l in text.split("\n") if l.strip()]
     return lines[:5] if lines else ["Recommendation generated based on scoring rules."]
 

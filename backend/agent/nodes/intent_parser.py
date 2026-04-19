@@ -10,7 +10,7 @@ from clients.langfuse_client import safe_create_span
 INTENT_SYSTEM_PROMPT = """You are an intent extraction engine for an insurance advisor system.
 Extract structured information from the user query.
 
-Return ONLY valid JSON matching this schema (no preamble, no markdown, no explanation):
+Return valid JSON matching this schema. Wrap your final JSON answer inside <answer> and </answer> tags (no preamble, no markdown, no explanation outside the tags):
 {
   "query_type": one of ["recommend", "compare", "explain", "cheapest", "clarify", "unsupported"],
   "industry": string or null,

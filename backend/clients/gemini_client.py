@@ -63,22 +63,27 @@ class GeminiClient:
                 max_output_tokens=max_tokens,
             )
 
-            # Create model with system instruction if present
-            if system_instruction:
-                model = genai.GenerativeModel(
-                    model_name=self.model_name,
-                    system_instruction=system_instruction,
+            # FOR GEMMA 4: Single-message instruct-following works best with generate_content
+            # rather than start_chat, as start_chat can confuse the context.
+            if len(conversation) <= 1:
+                prompt = ""
+                if system_instruction:
+                    prompt += f"CONTEXT/INSTRUCTIONS:\n{system_instruction}\n\n"
+                
+                user_msg = conversation[0]["parts"][0] if conversation else "No request"
+                prompt += f"USER REQUEST: {user_msg}\n\nRESPONSE:"
+
+                response = await asyncio.to_thread(
+                    self.model.generate_content,
+                    prompt,
                     generation_config=generation_config,
                 )
-            else:
-                model = self.model
-                model._generation_config = generation_config
+                return response.text
 
+            # FALLBACK for multi-turn history
             # Start chat and send message
-            chat = model.start_chat(history=conversation[:-1] if len(conversation) > 1 else [])
-
-            # Get the last message content
-            last_message = conversation[-1]["parts"][0] if conversation else "Hello"
+            chat = self.model.start_chat(history=conversation[:-1])
+            last_message = conversation[-1]["parts"][0]
 
             response = await asyncio.to_thread(
                 chat.send_message,
@@ -134,7 +139,14 @@ def safe_json_parse(raw: str) -> Optional[dict]:
     Strips markdown code fences if present.
     """
     import json
+    import re
     text = raw.strip()
+    
+    # Try to extract content between <answer> tags first
+    match = re.search(r'<answer>(.*?)</answer>', text, re.DOTALL | re.IGNORECASE)
+    if match:
+        text = match.group(1).strip()
+
     # Strip markdown JSON code block if present
     if text.startswith("```"):
         lines = text.split("\n")
