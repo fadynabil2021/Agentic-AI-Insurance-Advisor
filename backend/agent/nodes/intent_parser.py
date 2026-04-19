@@ -53,11 +53,8 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
 
     raw = None
     parsed = None
-    import asyncio
     for attempt in range(3):  # up to 2 retries
         try:
-            if attempt > 0:
-                await asyncio.sleep(1)  # Free tier rate limit backoff
             raw = await gemini_client.chat(
                 messages=[
                     {"role": "system", "content": INTENT_SYSTEM_PROMPT},
@@ -72,12 +69,11 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
             state["execution_trace"].append(f"intent_parser: attempt {attempt+1} failed — {e}")
 
     if parsed is None:
-        error_msg = f"Failed to parse intent after 3 attempts. Raw response: {raw[:200]}..."
-        state["error"] = {"type": "PARSE_ERROR", "message": error_msg}
-        state["execution_trace"].append(f"intent_parser: FAILED to parse intent. Raw: {raw}")
+        state["error"] = {"type": "PARSE_ERROR", "message": "Failed to parse intent after 3 attempts"}
+        state["execution_trace"].append("intent_parser: FAILED to parse intent, routing to fallback")
         if span:
             try:
-                span.end(output={"error": state["error"], "raw": raw})
+                span.end(output={"error": state["error"]})
             except Exception:
                 pass
         return state

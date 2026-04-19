@@ -44,9 +44,7 @@ def fallback_node(state: AgentState, langfuse_trace) -> AgentState:
 
     error = state.get("error") or {}
     error_type = error.get("type", "DEFAULT")
-    
-    # Use specific error message if available, otherwise use template
-    message = error.get("message") or FALLBACK_MESSAGES.get(error_type, FALLBACK_MESSAGES["DEFAULT"])
+    message = FALLBACK_MESSAGES.get(error_type, FALLBACK_MESSAGES["DEFAULT"])
 
     state["recommendation"] = None
     state["reasoning"] = None

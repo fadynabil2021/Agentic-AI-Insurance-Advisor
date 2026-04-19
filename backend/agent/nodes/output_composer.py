@@ -26,13 +26,7 @@ def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: di
     Always present — draws from scoring results.
     """
     top = top_pkg_name.lower()
-    # Safe list comprehension
-    others = []
-    for r in scoring_results:
-        pkg = r.get("package")
-        if pkg and pkg.get("name", "").lower() != top:
-            others.append(r)
-            
+    others = [r for r in scoring_results if r["package"].get("name", "").lower() != top]
     industry = entities.get("industry", "")
     dep_ratio = entities.get("dependents_ratio")
 
@@ -152,17 +146,14 @@ async def output_composer_node(
     scoring_breakdown = state.get("scoring_breakdown") or {}
     top_name_lower = top_pkg.get("name", "Standard").lower()
 
-    all_scores = {}
-    for r in scoring_results:
-        pkg = r.get("package")
-        if pkg:
-            all_scores[pkg.get("name", "?")] = r.get("score", 0)
-
     reasoning_context = {
         "package": top_pkg.get("name"),
         "entities": entities,
         "scoring_reasons": scoring_breakdown.get(top_name_lower, {}).get("reasons", []),
-        "all_scores": all_scores,
+        "all_scores": {
+            r["package"].get("name", "?"): r["score"]
+            for r in scoring_results
+        },
         "query_type": qt,
     }
 

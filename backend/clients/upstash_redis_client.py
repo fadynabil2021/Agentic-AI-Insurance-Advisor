@@ -1,74 +1,61 @@
 """
-Upstash Redis client for cloud-native caching.
-Self-contained singleton using the upstash-redis 1.0.0 asyncio pattern.
+Upstash Redis client for serverless Redis access.
+Replaces local Redis for cloud-native deployment.
 """
+from upstash_redis import AsyncRedis
+from typing import Optional
 import hashlib
 import json
-from typing import Optional
-from upstash_redis.asyncio import Redis
-from config import settings
-
-_redis_client: Optional[Redis] = None
 
 
-def _get_client() -> Optional[Redis]:
-    """Lazy-initialise the Upstash Redis singleton."""
+_redis_client: Optional[AsyncRedis] = None
+
+
+def get_upstash_redis(url: str, token: str) -> Optional[AsyncRedis]:
+    """Get or create the Upstash Redis client singleton."""
     global _redis_client
     if _redis_client is None:
-        if not settings.UPSTASH_REDIS_REST_URL or not settings.UPSTASH_REDIS_REST_TOKEN:
-            return None
         try:
-            # upstash_redis.asyncio.Redis is the correct class for version 1.0.0+
-            _redis_client = Redis(
-                url=settings.UPSTASH_REDIS_REST_URL,
-                token=settings.UPSTASH_REDIS_REST_TOKEN,
-            )
-        except Exception as e:
-            print(f"[redis] Failed to initialize client: {e}")
+            _redis_client = AsyncRedis(url=url, token=token)
+        except Exception:
             return None
     return _redis_client
 
 
 def make_cache_key(user_request: str) -> str:
+    """Create a cache key from the user request string."""
     return f"insurance:query:{hashlib.sha256(user_request.encode()).hexdigest()[:16]}"
 
 
-async def get_cached_response(user_request: str) -> Optional[dict]:
-    """Return cached response dict if present, else None."""
+async def get_cached_response(user_request: str, redis_client: AsyncRedis) -> Optional[dict]:
+    """Return cached response if present, else None."""
     try:
-        client = _get_client()
-        if client is None:
-            return None
-        raw = await client.get(make_cache_key(user_request))
+        raw = await redis_client.get(make_cache_key(user_request))
         if raw:
-            return json.loads(raw) if isinstance(raw, str) else raw
+            return json.loads(raw)
     except Exception:
         pass
     return None
 
 
-async def cache_response(user_request: str, response: dict) -> None:
-    """Store response in Upstash Redis with TTL."""
+async def cache_response(user_request: str, response: dict, redis_client: AsyncRedis, ttl: int = 300) -> None:
+    """Store response in Redis with TTL."""
     try:
-        client = _get_client()
-        if client is None:
-            return
-        await client.setex(
+        await redis_client.setex(
             make_cache_key(user_request),
-            settings.CACHE_TTL_SECONDS,
+            ttl,
             json.dumps(response),
         )
     except Exception:
         pass
 
 
-async def redis_health_check() -> bool:
-    """Ping Upstash Redis to check connectivity."""
+async def redis_health_check(redis_client: Optional[AsyncRedis]) -> bool:
+    """Ping Redis to check connectivity."""
     try:
-        client = _get_client()
-        if client is None:
+        if redis_client is None:
             return False
-        result = await client.ping()
+        result = await redis_client.ping()
         return result == "PONG"
     except Exception:
         return False

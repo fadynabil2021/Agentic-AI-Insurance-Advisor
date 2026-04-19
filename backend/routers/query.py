@@ -6,7 +6,6 @@ import time
 import uuid
 from fastapi import APIRouter, Request, HTTPException
 from models.schemas import QueryRequest, AgentResponse, Recommendation, ComparisonMatrix
-from clients.upstash_redis_client import get_cached_response, cache_response
 from clients.langfuse_client import safe_create_trace
 from agent.graph import make_initial_state
 from agent.state import ConfidenceLevel
@@ -77,10 +76,15 @@ async def run_query(request: QueryRequest, req: Request):
     start = time.time()
 
     # Check cache
-    cached = await get_cached_response(request.user_request)
-    if cached:
-        cached["latency_ms"] = int((time.time() - start) * 1000)
-        return AgentResponse(**cached)
+    from clients.upstash_redis_client import get_upstash_redis, get_cached_response, cache_response
+    from config import settings
+    redis_client = get_upstash_redis(settings.UPSTASH_REDIS_REST_URL, settings.UPSTASH_REDIS_REST_TOKEN)
+
+    if redis_client:
+        cached = await get_cached_response(request.user_request, redis_client)
+        if cached:
+            cached["latency_ms"] = int((time.time() - start) * 1000)
+            return AgentResponse(**cached)
 
     # Generate or reuse thread_id
     thread_id = request.thread_id or str(uuid.uuid4())
@@ -129,7 +133,8 @@ async def run_query(request: QueryRequest, req: Request):
 
     # Cache successful responses
     try:
-        await cache_response(request.user_request, response.model_dump())
+        if redis_client:
+            await cache_response(request.user_request, response.model_dump(), redis_client)
     except Exception:
         pass
 
