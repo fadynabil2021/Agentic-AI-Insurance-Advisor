@@ -8,8 +8,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # ── Google Gemini API ─────────────────────────────────────────
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-1.5-flash"
-    GEMINI_EMBED_MODEL: str = "text-embedding-004"
+    GEMINI_MODEL: str = "gemma-4-31b-it"
+    GEMINI_EMBED_MODEL: str = "gemini-embedding-001"
     GEMINI_TIMEOUT: int = 120
 
     # ── Pinecone Vector DB ─────────────────────────────────────────

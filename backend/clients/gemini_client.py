@@ -97,9 +97,10 @@ class GeminiClient:
             self._configure()
 
         try:
+            from config import settings
             result = await asyncio.to_thread(
                 genai.embed_content,
-                model="models/text-embedding-004",
+                model=f"models/{settings.GEMINI_EMBED_MODEL}",
                 content=text,
                 task_type=task_type,
             )
