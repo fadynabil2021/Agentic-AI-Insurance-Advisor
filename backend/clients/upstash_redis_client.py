@@ -38,7 +38,7 @@ async def get_cached_response(user_request: str, redis_client: AsyncRedis) -> Op
     return None
 
 
-async def cache_response(user_request: str, response: dict, redis_client: AsyncRedis, ttl: int = 300) -> None:
+async def cache_response(user_request: str, response: dict, redis_client: AsyncRedis, ttl: int = 600) -> None:
     """Store response in Redis with TTL."""
     try:
         await redis_client.setex(
