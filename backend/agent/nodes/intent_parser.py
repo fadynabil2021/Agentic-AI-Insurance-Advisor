@@ -51,6 +51,22 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
     """
     span = safe_create_span(langfuse_trace, "intent_parser", {"user_request": state["user_request"]})
 
+    # Check for cached intent parsing (same query = same intent)
+    from clients.intent_cache import intent_cache
+    user_request = state["user_request"]
+    cached_intent = await intent_cache.get(user_request)
+    if cached_intent:
+        state["query_type"] = cached_intent.get("query_type", "unsupported")
+        state["extracted_entities"] = cached_intent.get("entities", {})
+        state["missing_fields"] = cached_intent.get("missing_fields", [])
+        state["execution_trace"].append(f"intent_parser: CACHE HIT for query")
+        if span:
+            try:
+                span.end(output={"cached": True, "query_type": state["query_type"]})
+            except Exception:
+                pass
+        return state
+
     raw = None
     parsed = None
     for attempt in range(3):  # up to 2 retries
@@ -61,6 +77,7 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
                     {"role": "user", "content": state["user_request"]},
                 ],
                 temperature=0.1,
+                max_tokens=256,  # Reduced for faster response
             )
             parsed = safe_json_parse(raw)
             if parsed is not None:
@@ -96,6 +113,13 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
         f"entities={entities}, "
         f"missing={state['missing_fields']}"
     )
+
+    # Cache the parsed intent for future identical queries
+    await intent_cache.set(user_request, {
+        "query_type": qt,
+        "entities": entities,
+        "missing_fields": state["missing_fields"],
+    })
 
     if span:
         try:

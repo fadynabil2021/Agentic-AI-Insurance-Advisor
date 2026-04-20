@@ -34,7 +34,7 @@ class GeminiClient:
         self,
         messages: list[dict],
         temperature: float = 0.1,
-        max_tokens: int = 2048,
+        max_tokens: int = 512,  # Reduced for faster responses
     ) -> str:
         """Send a chat completion request to Gemini API."""
         if not self._configured:

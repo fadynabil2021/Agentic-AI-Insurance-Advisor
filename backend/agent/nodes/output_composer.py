@@ -13,9 +13,8 @@ REASONING_SYSTEM_PROMPT = """Based ONLY on the provided scoring data, generate 3
 Rules:
 - Each bullet MUST reference at least one specific data point (score, rule, entity value)
 - Do NOT introduce new information not present in the scoring data
-- Wrap your final answer (the bullets) inside <answer> and </answer> tags.
-- Inside the tags, provide only plain text bullets, one per line, starting with a dash (-).
-- Do NOT return JSON. No preamble, no explanation outside the tags."""
+- Return ONLY a JSON array of strings, e.g.: ["Reason 1", "Reason 2", "Reason 3"]
+- No preamble, no markdown, no tags, no explanation - just valid JSON."""
 
 
 def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: dict) -> str:
@@ -141,33 +140,57 @@ async def output_composer_node(
     scoring_breakdown = state.get("scoring_breakdown") or {}
     top_name_lower = top_pkg.get("name", "Standard").lower()
 
-    reasoning_context = {
-        "package": top_pkg.get("name"),
-        "entities": entities,
-        "scoring_reasons": scoring_breakdown.get(top_name_lower, {}).get("reasons", []),
-        "all_scores": {
-            r["package"].get("name", "?"): r["score"]
-            for r in scoring_results
-        },
-        "query_type": qt,
-    }
+    # FAST PATH: Use deterministic reasoning from scoring breakdown (skip LLM call)
+    # This significantly reduces latency for most queries
+    reasons = scoring_breakdown.get(top_name_lower, {}).get("reasons", [])
+    if reasons:
+        # Convert scoring reasons to user-friendly reasoning bullets
+        reasoning = []
+        for r in reasons[:5]:
+            # Clean up penalty/bonus prefixes for cleaner output
+            clean_reason = r
+            if clean_reason.startswith("PENALTY("):
+                clean_reason = clean_reason.split("): ", 1)[-1] if "): " in clean_reason else clean_reason
+            elif clean_reason.startswith("BONUS("):
+                clean_reason = clean_reason.split("): ", 1)[-1] if "): " in clean_reason else clean_reason
+            elif clean_reason.startswith("NOTE("):
+                clean_reason = clean_reason.split("): ", 1)[-1] if "): " in clean_reason else clean_reason
+            reasoning.append(clean_reason)
+        state["execution_trace"].append(f"output_composer: using deterministic reasoning ({len(reasoning)} bullets)")
+    else:
+        # FALLBACK: LLM-generated reasoning (slower, but more detailed)
+        reasoning_context = {
+            "package": top_pkg.get("name"),
+            "entities": entities,
+            "scoring_reasons": scoring_breakdown.get(top_name_lower, {}).get("reasons", []),
+            "all_scores": {
+                r["package"].get("name", "?"): r["score"]
+                for r in scoring_results
+            },
+            "query_type": qt,
+        }
 
-    try:
-        raw_reasoning = await gemini_client.chat(
-            messages=[
-                {"role": "system", "content": REASONING_SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps(reasoning_context)},
-            ],
-            temperature=0.1,
-        )
-        reasoning = parse_reasoning_list(raw_reasoning)
-    except Exception as e:
-        # Deterministic fallback reasoning from scoring breakdown
-        reasons = scoring_breakdown.get(top_name_lower, {}).get("reasons", [])
-        reasoning = reasons[:5] if reasons else [
-            f"{top_pkg.get('name')} selected with score {top_result['score']}/100.",
-            f"Query type: {qt}. Industry: {entities.get('industry', 'N/A')}. Region: {entities.get('region', 'N/A')}.",
-        ]
+        try:
+            raw_reasoning = await gemini_client.chat(
+                messages=[
+                    {"role": "system", "content": REASONING_SYSTEM_PROMPT},
+                    {"role": "user", "content": json.dumps(reasoning_context)},
+                ],
+                temperature=0.1,
+                max_tokens=512,
+            )
+            import json as json_lib
+            try:
+                reasoning = json_lib.loads(raw_reasoning.strip())
+                if not isinstance(reasoning, list):
+                    reasoning = parse_reasoning_list(raw_reasoning)
+            except json_lib.JSONDecodeError:
+                reasoning = parse_reasoning_list(raw_reasoning)
+        except Exception:
+            reasoning = [
+                f"{top_pkg.get('name')} selected with score {top_result['score']}/100.",
+                f"Query type: {qt}. Industry: {entities.get('industry', 'N/A')}. Region: {entities.get('region', 'N/A')}.",
+            ]
 
     state["reasoning"] = reasoning
 

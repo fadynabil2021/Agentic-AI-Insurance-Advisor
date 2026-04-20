@@ -8,9 +8,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # ── Google Gemini API ─────────────────────────────────────────
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemma-4-31b-it"
+    GEMINI_MODEL: str = "gemini-1.5-flash"  # Faster model with lower latency
     GEMINI_EMBED_MODEL: str = "gemini-embedding-001"
-    GEMINI_TIMEOUT: int = 120
+    GEMINI_TIMEOUT: int = 30  # Reduced from 120s to 30s for faster fail
 
     # ── Pinecone Vector DB ─────────────────────────────────────────
     PINECONE_API_KEY: str = ""
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # ── Upstash Redis ──────────────────────────────────────────────
     UPSTASH_REDIS_REST_URL: str = ""
     UPSTASH_REDIS_REST_TOKEN: str = ""
-    CACHE_TTL_SECONDS: int = 300
+    CACHE_TTL_SECONDS: int = 600  # Increased from 300 to 600 for better cache hit rate
 
     # ── Agent ────────────────────────────────────────────────────
     MAX_RETRIES: int = 2
