@@ -22,13 +22,19 @@ Return valid JSON matching this schema. Wrap your final JSON answer inside <answ
   "compare_packages": list of strings or null
 }
 
-Rules:
+Rules for INFERENCE (critical for accurate recommendations):
+- INFER budget from context: "best plan", "premium service", "top hospitals" → high; "cost-effective", "reasonable" → medium; "cheapest", "budget", "low cost" → low
+- INFER priority from context: "best coverage", "top hospitals", "premium" → maximum coverage; "cheapest", "low cost", "budget" → lowest cost; "balanced", "standard" → balanced
+- INFER industry from company type: "healthcare company", "hospital", "clinic" → healthcare; "construction", "builder" → construction; "retail", "store", "shop" → retail
+- For healthcare industry: ALWAYS set budget to at least "medium" (never low)
+- For high-cost regions (Riyadh): if budget unclear, default to "medium" or "high"
+- Return null ONLY when no inference is possible from context
+
+Other rules:
 - If the request is not about insurance plan selection, set query_type to "unsupported"
 - If the request asks for cheapest / lowest cost, set query_type to "cheapest"
 - If the request asks to compare two plans, set query_type to "compare"
 - If the request asks to explain a previous recommendation, set query_type to "explain"
-- Do NOT infer fields that are not stated or strongly implied by the request
-- Return null for any field you cannot determine
 - region values: normalize to lowercase (riyadh, jeddah, dammam)
 - industry values: normalize to lowercase (healthcare, construction, retail)
 - budget values: low, medium, high only"""

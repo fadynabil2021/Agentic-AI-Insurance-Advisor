@@ -101,16 +101,19 @@ def run_scoring(packages: list[dict], entities: dict) -> list[dict]:
         reasons: list[str] = []
 
         # ── Rule 1: Budget compatibility ────────────────────────────────────
-        budget = (entities.get("budget") or "medium").lower()
-        compatible = BUDGET_PACKAGE_COMPATIBILITY.get(
-            budget, ["basic", "standard", "premium"]
-        )
-        if pkg_name not in compatible:
-            score -= WEIGHT_BUDGET_INCOMPATIBLE
-            reasons.append(
-                f"PENALTY(−{WEIGHT_BUDGET_INCOMPATIBLE}): "
-                f"{pkg_name} not compatible with {budget} budget"
+        budget = entities.get("budget")
+        # Only apply budget penalty if budget was explicitly provided or strongly inferred
+        if budget:
+            budget = budget.lower()
+            compatible = BUDGET_PACKAGE_COMPATIBILITY.get(
+                budget, ["basic", "standard", "premium"]
             )
+            if pkg_name not in compatible:
+                score -= WEIGHT_BUDGET_INCOMPATIBLE
+                reasons.append(
+                    f"PENALTY(−{WEIGHT_BUDGET_INCOMPATIBLE}): "
+                    f"{pkg_name} not compatible with {budget} budget"
+                )
 
         # ── Rule 2: Industry risk ────────────────────────────────────────────
         industry = (entities.get("industry") or "").lower()
@@ -140,26 +143,29 @@ def run_scoring(packages: list[dict], entities: dict) -> list[dict]:
             )
 
         # ── Rule 4: Priority alignment ───────────────────────────────────────
-        priority = (entities.get("priority") or "balanced").lower()
-        preferred = _match_priority(priority)
+        priority = entities.get("priority")
+        # Only apply priority penalty/bonus if priority was explicitly provided
+        if priority:
+            priority = priority.lower()
+            preferred = _match_priority(priority)
 
-        # Also handle cheapest query type when no explicit priority matched
-        qt = entities.get("_query_type", "")
-        if qt == "cheapest" and not preferred:
-            preferred = ["basic", "standard"]
+            # Also handle cheapest query type when no explicit priority matched
+            qt = entities.get("_query_type", "")
+            if qt == "cheapest" and not preferred:
+                preferred = ["basic", "standard"]
 
-        if preferred and pkg_name not in preferred:
-            score -= WEIGHT_PRIORITY_MISALIGN
-            reasons.append(
-                f"PENALTY(−{WEIGHT_PRIORITY_MISALIGN}): "
-                f"{pkg_name} does not align with priority '{priority}'"
-            )
-        elif preferred and pkg_name in preferred:
-            score += BONUS_PRIORITY_MATCH
-            reasons.append(
-                f"BONUS(+{BONUS_PRIORITY_MATCH}): "
-                f"{pkg_name} matches priority '{priority}'"
-            )
+            if preferred and pkg_name not in preferred:
+                score -= WEIGHT_PRIORITY_MISALIGN
+                reasons.append(
+                    f"PENALTY(−{WEIGHT_PRIORITY_MISALIGN}): "
+                    f"{pkg_name} does not align with priority '{priority}'"
+                )
+            elif preferred and pkg_name in preferred:
+                score += BONUS_PRIORITY_MATCH
+                reasons.append(
+                    f"BONUS(+{BONUS_PRIORITY_MATCH}): "
+                    f"{pkg_name} matches priority '{priority}'"
+                )
 
         # ── Rule 5: Dependents ratio ─────────────────────────────────────────
         dep_ratio = entities.get("dependents_ratio")
