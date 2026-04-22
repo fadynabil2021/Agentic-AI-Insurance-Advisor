@@ -56,14 +56,27 @@ def validator_node(state: AgentState, langfuse_trace) -> AgentState:
         return state
 
     if qt == QueryType.UNSUPPORTED or qt == "unsupported":
+        # Check if specific unsupported reason can be identified
+        entities = state.get("extracted_entities") or {}
+        region = entities.get("region", "").lower() if entities.get("region") else ""
+        industry = entities.get("industry", "").lower() if entities.get("industry") else ""
+
+        # Build specific error message based on what was unsupported
+        if region and region not in ["riyadh", "jeddah", "dammam"]:
+            error_msg = f"The region '{region}' is outside our service area. We only provide insurance recommendations for companies based in Riyadh, Jeddah, or Dammam (Saudi Arabia)."
+        elif industry and industry not in ["healthcare", "construction", "retail"]:
+            error_msg = f"The '{industry}' industry is not currently supported. We only provide insurance recommendations for healthcare, construction, and retail sectors in Saudi Arabia."
+        else:
+            error_msg = "Request is outside the supported domain (insurance plan selection for Saudi Arabian companies in healthcare, construction, or retail)."
+
         state["error"] = {
             "type": "UNSUPPORTED_QUERY",
-            "message": "Request is outside the supported domain (insurance plan selection).",
+            "message": error_msg,
         }
-        state["execution_trace"].append("validator: query flagged UNSUPPORTED")
+        state["execution_trace"].append(f"validator: query flagged UNSUPPORTED - {error_msg[:50]}...")
         if span:
             try:
-                span.end(output={"routed_to": "fallback"})
+                span.end(output={"routed_to": "fallback", "reason": error_msg})
             except Exception:
                 pass
         return state

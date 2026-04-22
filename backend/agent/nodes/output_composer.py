@@ -8,16 +8,39 @@ from agent.state import AgentState, ConfidenceLevel
 from clients.gemini_client import GeminiClient
 from clients.langfuse_client import safe_create_span
 
-REASONING_SYSTEM_PROMPT = """As a senior Saudi Insurance Consultant, justify why the selected medical plan is the optimal choice for this business. 
+REASONING_SYSTEM_PROMPT = """You are a senior Saudi Insurance Consultant. Your task is to write 3-5 unique, specific bullet points explaining why the selected plan is optimal for THIS specific business.
 
-Your explanation must be unique, professional, and deeply grounded in the providing scoring data. 
-Focus on explaining the value to a business owner in the specific region and industry provided.
+INPUT DATA YOU WILL RECEIVE:
+- package: The selected plan name and details
+- score: The numerical score (0-100) this plan received
+- entities: {industry, region, budget, priority, dependents_ratio}
+- scoring_reasons: The ACTUAL reasons from the scoring tool showing why this plan scored well
+- all_scored_packages: All packages that were scored with their scores
 
-STRICT FORMATTING:
-- You must provide 3-5 distinct bullet points.
-- Start every bullet with a dash (-).
-- You MUST wrap your entire final response inside [REASONING] and [/REASONING] tags.
-- Do NOT repeat these instructions. Do NOT include any preamble or self-introduction outside the tags."""
+YOUR RESPONSE MUST:
+1. Reference the ACTUAL score difference between packages (e.g., "Scored 92/100 vs 78/100 for Standard")
+2. Cite SPECIFIC scoring reasons from the scoring_reasons array — do not make up generic benefits
+3. Connect the industry (e.g., healthcare) to SPECIFIC coverage needs in that sector
+4. Mention the region's medical cost environment (Riyadh = highest costs, Jeddah = moderate, Dammam = lower)
+5. Address budget tier implications if budget was provided
+6. Each bullet must be UNIQUE — no repeated phrases or generic filler
+
+STRICT FORMATTING RULES:
+- Provide exactly 3-5 bullet points
+- Each bullet starts with a dash (-) followed by a space
+- Wrap your ENTIRE response inside [REASONING] and [/REASONING] tags
+- NO preamble, NO self-introduction, NO explanations outside the tags
+- Do NOT output JSON, code blocks, or any other format
+
+EXAMPLE OF GOOD OUTPUT:
+[REASONING]
+- Premium scored 95/100 (vs 82/100 for Standard) — Network A includes 15 top-tier hospitals in Riyadh not covered by Network B
+- Healthcare industry requires specialist access — Premium covers advanced diagnostics and consultant visits critical for clinic staff
+- Riyadh's high medical costs make Network A's broader coverage cost-effective long-term despite higher premium
+- High budget tier aligns with Premium — maximizes employee retention value through comprehensive family coverage
+[/REASONING]
+
+NOW generate 3-5 bullets based on the actual scoring data provided. Make each response UNIQUE to this specific query."""
 
 def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: dict) -> str:
     """
@@ -167,10 +190,10 @@ def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: di
 
 def parse_reasoning_list(raw: str) -> list[str]:
     """Extract a list of strings from raw Gemini output."""
+    import re
     text = raw.strip()
 
     # Try to extract content between [REASONING] tags
-    import re
     match = re.search(r'\[REASONING\](.*?)\[/REASONING\]', text, re.DOTALL | re.IGNORECASE)
     if match:
         text = match.group(1).strip()
@@ -179,9 +202,18 @@ def parse_reasoning_list(raw: str) -> list[str]:
         lines = text.split("\n")
         text = "\n".join(l for l in lines[1:] if l.strip() != "```").strip()
 
-    # Just split by newlines and clean up
-    lines = [l.lstrip("•-* ").strip() for l in text.split("\n") if l.strip()]
-    return lines[:5] if lines else ["Recommendation generated based on scoring rules."]
+    # Split by newlines and clean up each line
+    lines = []
+    for l in text.split("\n"):
+        cleaned = l.strip()
+        # Remove bullet prefixes (-, *, •, numbers)
+        cleaned = re.sub(r'^[\s]*[-*•]\s*', '', cleaned)
+        cleaned = re.sub(r'^[\s]*\d+\.\s*', '', cleaned)
+        if cleaned and len(cleaned) > 10:  # Ignore very short lines
+            lines.append(cleaned)
+
+    # Return top 5 unique lines, or empty list if nothing valid
+    return lines[:5] if lines else []
 
 
 
@@ -288,14 +320,24 @@ async def output_composer_node(
             temperature=0.7, # Higher temperature for unique phrasing
         )
         reasoning = parse_reasoning_list(raw_reasoning)
+        if not reasoning:
+            raise ValueError("LLM returned empty reasoning list")
     except Exception as e:
         # Deterministic fallback reasoning from our previous logic if LLM fails
         state["execution_trace"].append(f"output_composer: LLM reasoning failed ({e}) — using deterministic fallback")
-        reasoning = [
-            f"{top_pkg.get('name')} selected with score {top_result['score']}/100.",
-            f"Optimized for your profile in {region or 'KSA'} {industry or ''} sector.",
-            f"Matches criteria for {budget or 'standard'} budget requirements."
-        ]
+        # Build specific fallback from actual scoring data
+        fallback_reasons = []
+        if raw_reasons:
+            for r in raw_reasons[:3]:
+                fallback_reasons.append(str(r))
+        if not fallback_reasons:
+            fallback_reasons = [
+                f"{top_pkg.get('name')} scored {top_result['score']}/100 based on your requirements.",
+                f"Selected for {industry or 'your'} sector in {region or 'Saudi Arabia'}.",
+            ]
+            if budget:
+                fallback_reasons.append(f"Aligned with {budget} budget tier constraints.")
+        reasoning = fallback_reasons
 
     state["execution_trace"].append(f"output_composer: generated {len(reasoning)} reasoning bullets")
     state["reasoning"] = reasoning

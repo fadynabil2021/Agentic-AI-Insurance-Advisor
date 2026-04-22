@@ -7,29 +7,29 @@ from clients.langfuse_client import safe_create_span
 
 FALLBACK_MESSAGES = {
     "UNSUPPORTED_QUERY": (
-        "I can only assist with insurance plan selection for companies in Saudi Arabia (Riyadh, Jeddah, or Dammam) "
-        "operating in the Healthcare, Construction, or Retail industries. "
-        "Your request appears to be outside this specific domain or region. "
-        "Please provide a valid query within these supported parameters."
+        "This request is outside the supported service area. "
+        "We only provide insurance recommendations for: "
+        "• Regions: Riyadh, Jeddah, Dammam (Saudi Arabia only) "
+        "• Industries: Healthcare, Construction, Retail "
+        "Please resubmit with valid region and industry details."
     ),
     "EMPTY_RETRIEVAL": (
-        "Unable to find relevant packages matching your criteria. "
-        "Please verify the industry and region details, "
-        "or contact an advisor for custom options."
+        "No insurance packages matched your criteria. "
+        "This may happen with unusual combinations of industry, region, and budget. "
+        "Try adjusting your requirements or contact an advisor for custom quotes."
     ),
     "LOW_CONFIDENCE": (
-        "The system was able to generate a recommendation but confidence is low "
-        "due to conflicting constraints. "
-        "Please review the reasoning carefully before proceeding."
+        "Recommendation generated with low confidence due to conflicting requirements. "
+        "Review the reasoning bullets carefully — you may want to adjust your priorities."
     ),
     "PARSE_ERROR": (
-        "Unable to understand the request. "
-        "Please rephrase your question with the industry type, region, "
-        "and any budget or coverage preferences."
+        "Could not parse your request. "
+        "Include: industry (healthcare/construction/retail), region (Riyadh/Jeddah/Dammam), "
+        "and budget level (low/medium/high) for best results."
     ),
     "DEFAULT": (
-        "An unexpected error occurred while processing your request. "
-        "Please try again or rephrase your query."
+        "Unable to process this request. "
+        "Please rephrase or provide more details about your insurance needs."
     ),
 }
 
