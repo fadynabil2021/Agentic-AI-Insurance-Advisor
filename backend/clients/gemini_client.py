@@ -68,10 +68,13 @@ class GeminiClient:
             if len(conversation) <= 1:
                 prompt = ""
                 if system_instruction:
-                    prompt += f"CONTEXT/INSTRUCTIONS:\n{system_instruction}\n\n"
+                    prompt += "--- SYSTEM INSTRUCTIONS ---\n"
+                    prompt += f"{system_instruction}\n"
+                    prompt += "--- END SYSTEM INSTRUCTIONS ---\n\n"
                 
                 user_msg = conversation[0]["parts"][0] if conversation else "No request"
-                prompt += f"USER REQUEST: {user_msg}\n\nRESPONSE:"
+                prompt += f"USER QUERY: {user_msg}\n\n"
+                prompt += "YOUR FINAL RESPONSE (Exactly following instructions):"
 
                 response = await asyncio.to_thread(
                     self.model.generate_content,

@@ -8,16 +8,16 @@ from agent.state import AgentState, ConfidenceLevel
 from clients.gemini_client import GeminiClient
 from clients.langfuse_client import safe_create_span
 
-REASONING_SYSTEM_PROMPT = """Based ONLY on the provided scoring data and user context, generate 3-5 unique, conversational bullet points explaining why the selected package is the best choice.
+REASONING_SYSTEM_PROMPT = """As a senior Saudi Insurance Consultant, justify why the selected medical plan is the optimal choice for this business. 
 
-Rules:
-- Mix sentence structures to ensure every response feels unique.
-- Directly mention scoring benchmarks and how the package meets or exceeds them.
-- Use the user's specific context (industry, region, budget) to ground the advice.
-- Wrap your final answer (the bullets) inside <answer> and </answer> tags.
-- Inside the tags, provide only plain text bullets, one per line, starting with a dash (-).
-- Do NOT return JSON. No preamble, no explanation outside the tags."""
+Your explanation must be unique, professional, and deeply grounded in the providing scoring data. 
+Focus on explaining the value to a business owner in the specific region and industry provided.
 
+STRICT FORMATTING:
+- You must provide 3-5 distinct bullet points.
+- Start every bullet with a dash (-).
+- You MUST wrap your entire final response inside [REASONING] and [/REASONING] tags.
+- Do NOT repeat these instructions. Do NOT include any preamble or self-introduction outside the tags."""
 
 def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: dict) -> str:
     """
@@ -166,12 +166,12 @@ def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: di
 
 
 def parse_reasoning_list(raw: str) -> list[str]:
-    """Extract a list of strings from raw Gemma 4 output."""
+    """Extract a list of strings from raw Gemini output."""
     text = raw.strip()
 
-    # Try to extract content between <answer> tags
+    # Try to extract content between [REASONING] tags
     import re
-    match = re.search(r'<answer>(.*?)</answer>', text, re.DOTALL | re.IGNORECASE)
+    match = re.search(r'\[REASONING\](.*?)\[/REASONING\]', text, re.DOTALL | re.IGNORECASE)
     if match:
         text = match.group(1).strip()
     elif text.startswith("```"):

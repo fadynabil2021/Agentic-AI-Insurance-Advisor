@@ -7,9 +7,10 @@ from clients.langfuse_client import safe_create_span
 
 FALLBACK_MESSAGES = {
     "UNSUPPORTED_QUERY": (
-        "This system is designed for insurance plan recommendations. "
-        "Your query appears to be outside this scope. "
-        "Please ask about plan selection, comparison, or cost optimization."
+        "I can only assist with insurance plan selection for companies in Saudi Arabia (Riyadh, Jeddah, or Dammam) "
+        "operating in the Healthcare, Construction, or Retail industries. "
+        "Your request appears to be outside this specific domain or region. "
+        "Please provide a valid query within these supported parameters."
     ),
     "EMPTY_RETRIEVAL": (
         "Unable to find relevant packages matching your criteria. "

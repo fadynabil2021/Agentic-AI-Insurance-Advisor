@@ -7,10 +7,17 @@ from agent.state import AgentState, QueryType
 from clients.gemini_client import GeminiClient, safe_json_parse
 from clients.langfuse_client import safe_create_span
 
-INTENT_SYSTEM_PROMPT = """You are an intent extraction engine for an insurance advisor system.
-Extract structured information from the user query.
+INTENT_SYSTEM_PROMPT = """You are a strictly bound intent extraction engine for a Saudi Arabian Insurance Advisor.
+Your ONLY purpose is to help with business insurance plan selection within Saudi Arabia.
 
-Return valid JSON matching this schema. Wrap your final JSON answer inside <answer> and </answer> tags (no preamble, no markdown, no explanation outside the tags):
+CONSTRAINTS (CRITICAL):
+1. SUPPORTED REGIONS: ONLY "riyadh", "jeddah", "dammam".
+2. SUPPORTED INDUSTRIES: ONLY "healthcare", "construction", "retail".
+3. If the user asks about ANY region outside Saudi Arabia (e.g., London, Cairo, New York), set query_type to "unsupported".
+4. If the user asks about ANY industry not listed above (e.g., food delivery, tourism, agriculture), set query_type to "unsupported".
+5. If the request is not related to insurance plan selection, set query_type to "unsupported".
+
+Extraction Schema (Return ONLY JSON inside <answer></answer> tags):
 {
   "query_type": one of ["recommend", "compare", "explain", "cheapest", "clarify", "unsupported"],
   "industry": string or null,
@@ -22,22 +29,10 @@ Return valid JSON matching this schema. Wrap your final JSON answer inside <answ
   "compare_packages": list of strings or null
 }
 
-Rules for INFERENCE (critical for accurate recommendations):
-- INFER budget from context: "best plan", "premium service", "top hospitals" → high; "cost-effective", "reasonable" → medium; "cheapest", "budget", "low cost" → low
-- INFER priority from context: "best coverage", "top hospitals", "premium" → maximum coverage; "cheapest", "low cost", "budget" → lowest cost; "balanced", "standard" → balanced
-- INFER industry from company type: "healthcare company", "hospital", "clinic" → healthcare; "construction", "builder" → construction; "retail", "store", "shop" → retail
-- For healthcare industry: ALWAYS set budget to at least "medium" (never low)
-- For high-cost regions (Riyadh): if budget unclear, default to "medium" or "high"
-- Return null ONLY when no inference is possible from context
-
-Other rules:
-- If the request is not about insurance plan selection, set query_type to "unsupported"
-- If the request asks for cheapest / lowest cost, set query_type to "cheapest"
-- If the request asks to compare two plans, set query_type to "compare"
-- If the request asks to explain a previous recommendation, set query_type to "explain"
-- region values: normalize to lowercase (riyadh, jeddah, dammam)
-- industry values: normalize to lowercase (healthcare, construction, retail)
-- budget values: low, medium, high only"""
+Inference Rules:
+- INFER budget/priority from tone: "best/top/premium" -> high/maximum; "cheapest/budget/low" -> low/lowest cost.
+- industry normalization: "hospital/clinic" -> healthcare; "builder/engineer" -> construction; "shop/store" -> retail.
+- region normalization: lowercase (riyadh, jeddah, dammam)."""
 
 # Required fields per query type (for missing_fields detection)
 REQUIRED_FIELDS_PER_QUERY_TYPE: dict[str, list[str]] = {
