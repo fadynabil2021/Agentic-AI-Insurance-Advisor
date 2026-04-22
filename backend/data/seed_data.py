@@ -15,6 +15,7 @@ from clients.gemini_client import GeminiClient
 from config import settings
 
 # ─── Package Catalog (3 packages) ────────────────────────────────────────────
+# Matches PDF Section 5.B exactly.
 
 PACKAGES = [
     {
@@ -22,15 +23,16 @@ PACKAGES = [
         "document": (
             "Basic Insurance Plan: Network C provider network. "
             "Price range 4000-5000 SAR per employee annually. "
-            "Coverage level: basic medical, emergency, and outpatient services. "
+            "Coverage level: Low — cheapest option, limited provider access. "
             "Suitable for low-risk industries with budget-conscious employers. "
-            "Best for retail and education sectors with small employee counts."
+            "Best for retail and education sectors with small employee counts. "
+            "Network C is suitable for cost-focused customers with simpler expectations."
         ),
         "metadata": {
             "name": "Basic",
             "network": "C",
             "price_range": "[4000, 5000]",
-            "coverage": "Basic",
+            "coverage": "Low",
             "budget_tier": "low",
             "type": "package",
         },
@@ -40,10 +42,11 @@ PACKAGES = [
         "document": (
             "Standard Insurance Plan: Network B provider network. "
             "Price range 6000-7500 SAR per employee annually. "
-            "Coverage level: medium — includes inpatient, outpatient, dental, and optical. "
+            "Coverage level: Medium — balanced price and network. "
+            "Includes inpatient, outpatient, dental, and optical. "
             "Recommended for medium-risk industries. "
             "Well-suited for construction, manufacturing, and retail companies. "
-            "Balanced cost-to-coverage ratio for most business profiles."
+            "Network B is best for balanced price-to-value tradeoffs."
         ),
         "metadata": {
             "name": "Standard",
@@ -59,10 +62,12 @@ PACKAGES = [
         "document": (
             "Premium Insurance Plan: Network A provider network — top-tier hospitals. "
             "Price range 9000-12000 SAR per employee annually. "
-            "Coverage level: high — includes all Standard benefits plus maternity, "
+            "Coverage level: High — best coverage and strongest network. "
+            "Includes all Standard benefits plus maternity, "
             "chronic disease, specialist referrals, and international coverage. "
             "Recommended for high-risk industries such as healthcare. "
-            "Suitable for companies with high dependents ratio or premium requirements."
+            "Suitable for companies with high dependents ratio or premium requirements. "
+            "Network A is best for customers who prioritize access and premium hospitals."
         ),
         "metadata": {
             "name": "Premium",
@@ -76,12 +81,14 @@ PACKAGES = [
 ]
 
 # ─── Benchmark Rules (12 rules) ───────────────────────────────────────────────
+# Matches PDF Section 5.C exactly.
 
 BENCHMARK_RULES = [
     {
         "id": "rule_industry_healthcare",
         "document": (
             "Healthcare industry risk classification: HIGH. "
+            "Healthcare = high risk. "
             "Healthcare companies require minimum Network B coverage. "
             "Basic plan is not suitable for healthcare due to high clinical risk exposure. "
             "Premium is recommended when dependents ratio exceeds 0.50."
@@ -92,6 +99,7 @@ BENCHMARK_RULES = [
         "id": "rule_industry_construction",
         "document": (
             "Construction industry risk classification: MEDIUM. "
+            "Construction = medium risk. "
             "Construction companies benefit from Standard plan with occupational coverage. "
             "Basic plan is acceptable for small construction firms with low claim history. "
             "Premium is typically over-specification for standard construction workforce."
@@ -102,6 +110,7 @@ BENCHMARK_RULES = [
         "id": "rule_industry_retail",
         "document": (
             "Retail industry risk classification: MEDIUM-LOW. "
+            "Retail = medium-low risk. "
             "Retail companies typically have standard health risks. "
             "Standard plan is most appropriate for retail workforce. "
             "Premium may be over-specification unless executive benefits are required."
@@ -112,6 +121,7 @@ BENCHMARK_RULES = [
         "id": "rule_region_riyadh",
         "document": (
             "Riyadh regional cost pressure: HIGH (score 3). "
+            "Riyadh has higher medical cost than Jeddah and Dammam. "
             "Riyadh has the highest medical cost index in Saudi Arabia. "
             "Premium plans in Riyadh carry the highest total cost burden. "
             "Medium-budget companies in Riyadh should prioritize Standard over Premium."
@@ -121,8 +131,9 @@ BENCHMARK_RULES = [
     {
         "id": "rule_region_dammam",
         "document": (
-            "Dammam regional cost pressure: MEDIUM (score 2). "
-            "Dammam has moderate medical costs, between Riyadh and Jeddah. "
+            "Dammam regional cost pressure: MEDIUM-HIGH (score 2). "
+            "Dammam is moderate-to-high cost. "
+            "Dammam has moderate-to-high medical costs, between Riyadh and Jeddah. "
             "Standard plan is recommended for medium-budget companies in Dammam. "
             "Premium is viable for high-budget or high-risk industries."
         ),
@@ -131,10 +142,10 @@ BENCHMARK_RULES = [
     {
         "id": "rule_region_jeddah",
         "document": (
-            "Jeddah regional cost pressure: LOW (score 1). "
-            "Jeddah has the lowest regional medical cost index. "
+            "Jeddah regional cost pressure: MODERATE (score 1). "
+            "Jeddah is moderate cost. "
             "Basic and Standard plans are viable for most industries in Jeddah. "
-            "Cost savings from lower regional rates make Standard highly attractive."
+            "Cost savings from moderate regional rates make Standard highly attractive."
         ),
         "metadata": {"rule_type": "region_cost", "region": "jeddah", "cost_pressure": 1},
     },
@@ -142,6 +153,7 @@ BENCHMARK_RULES = [
         "id": "rule_budget_low",
         "document": (
             "Low budget constraint: recommend Basic or Standard plans only. "
+            "Low-budget users should not be recommended Premium unless clearly justified. "
             "Premium plans are not compatible with low-budget profiles. "
             "Budget-constrained companies should prioritize Basic unless industry risk requires Standard."
         ),
@@ -169,6 +181,7 @@ BENCHMARK_RULES = [
         "id": "rule_cheapest",
         "document": (
             "Cheapest acceptable option scoring rule: "
+            "If user asks for 'cheapest acceptable', favor Basic or Standard with explanation. "
             "When the customer requests cheapest acceptable option, apply cost-priority scoring. "
             "Basic gets +20 bonus if industry risk allows. "
             "Standard gets neutral treatment. "
@@ -177,10 +190,22 @@ BENCHMARK_RULES = [
         "metadata": {"rule_type": "priority", "priority": "cheapest"},
     },
     {
+        "id": "rule_best_coverage",
+        "document": (
+            "Best coverage option scoring rule: "
+            "If user asks for 'best coverage', favor Premium unless budget or rules strongly conflict. "
+            "Premium gets priority for coverage-focused requests. "
+            "Standard is fallback when budget constraints prevent Premium. "
+            "Basic should only be recommended if budget is severely constrained."
+        ),
+        "metadata": {"rule_type": "priority", "priority": "best_coverage"},
+    },
+    {
         "id": "rule_dependents_ratio",
         "document": (
             "Dependents ratio rule: when dependents ratio exceeds 0.50, "
             "Basic plan is penalized by 15 points due to increased family benefits cost. "
+            "High dependents ratio increases cost pressure. "
             "Standard is recommended as minimum when dependents ratio is high. "
             "Premium should be evaluated when dependents ratio exceeds 0.70."
         ),
@@ -199,13 +224,15 @@ BENCHMARK_RULES = [
     },
 ]
 
-# ─── Knowledge Snippets (4 snippets) ─────────────────────────────────────────
+# ─── Knowledge Snippets (5 snippets) ─────────────────────────────────────────
+# Matches PDF Section 5.D exactly.
 
 KNOWLEDGE_SNIPPETS = [
     {
         "id": "snip_network_a",
         "document": (
-            "Network A (Premium): Top-tier hospital network. "
+            "Network A is best for customers who prioritize access and premium hospitals. "
+            "Top-tier hospital network. "
             "Includes all major private hospitals in Saudi Arabia. "
             "Shortest referral times, highest specialist access. "
             "Required for healthcare industry workers with clinical exposure."
@@ -215,7 +242,8 @@ KNOWLEDGE_SNIPPETS = [
     {
         "id": "snip_network_b",
         "document": (
-            "Network B (Standard): Mid-tier hospital network. "
+            "Network B is best for balanced price-to-value tradeoffs. "
+            "Mid-tier hospital network. "
             "Covers all major public hospitals and selected private clinics. "
             "Appropriate for medium-risk industries. "
             "Good balance of coverage breadth and cost efficiency."
@@ -225,7 +253,8 @@ KNOWLEDGE_SNIPPETS = [
     {
         "id": "snip_network_c",
         "document": (
-            "Network C (Basic): Entry-level provider network. "
+            "Network C is suitable for cost-focused customers with simpler expectations. "
+            "Entry-level provider network. "
             "Government and community hospitals only. "
             "Limited specialist access. "
             "Suitable for low-risk, budget-conscious employers in low-cost regions."
@@ -243,46 +272,69 @@ KNOWLEDGE_SNIPPETS = [
         ),
         "metadata": {"type": "snippet", "topic": "market_context"},
     },
+    {
+        "id": "snip_dependents_healthcare",
+        "document": (
+            "High-dependents healthcare accounts tend to need tighter control of benefits "
+            "and cost tradeoffs. When dependents ratio is high, the total cost of coverage "
+            "increases substantially. Companies with high dependents ratios should consider "
+            "Standard or Premium plans to ensure adequate family coverage."
+        ),
+        "metadata": {"type": "snippet", "topic": "dependents_healthcare"},
+    },
 ]
 
 # ─── Customer Profiles (3 profiles) ──────────────────────────────────────────
+# Matches PDF Section 5.A (Customer A, B, C) exactly.
 
 CUSTOMER_PROFILES = [
     {
         "id": "profile_healthcare_riyadh",
         "document": (
-            "Sample profile: Healthcare company in Riyadh, 500 employees, medium budget, "
-            "dependents ratio 0.45. Recommended: Standard Plan, Network B. "
+            "Customer A profile: Healthcare company in Riyadh, 120 employees, medium budget, "
+            "dependents ratio 0.60. Priority: Balanced coverage and network strength. "
+            "Recommended: Standard Plan, Network B. "
             "High industry risk drives minimum Network B requirement. "
-            "Riyadh cost pressure makes Premium difficult on medium budget."
+            "Riyadh cost pressure makes Premium difficult on medium budget. "
+            "Dependents ratio 0.60 exceeds 0.50 threshold — Basic insufficient."
         ),
         "metadata": {
             "industry": "healthcare", "region": "riyadh",
-            "budget": "medium", "recommended_plan": "Standard"
+            "employees": 120, "dependents_ratio": 0.60,
+            "budget": "medium", "priority": "balanced coverage and network strength",
+            "recommended_plan": "Standard",
         },
     },
     {
         "id": "profile_construction_jeddah",
         "document": (
-            "Sample profile: Construction company in Jeddah, 150 employees, low budget, "
-            "priority: cheapest acceptable. Recommended: Basic Plan, Network C. "
-            "Medium risk industry + lowest cost region + budget constraint → Basic viable."
+            "Customer B profile: Construction company in Jeddah, 80 employees, low budget, "
+            "dependents ratio 0.30. Priority: Cheapest acceptable option. "
+            "Recommended: Basic Plan, Network C. "
+            "Medium risk industry + moderate cost region + budget constraint → Basic viable. "
+            "Low dependents ratio means Basic coverage is sufficient."
         ),
         "metadata": {
             "industry": "construction", "region": "jeddah",
-            "budget": "low", "recommended_plan": "Basic"
+            "employees": 80, "dependents_ratio": 0.30,
+            "budget": "low", "priority": "cheapest acceptable option",
+            "recommended_plan": "Basic",
         },
     },
     {
         "id": "profile_retail_dammam",
         "document": (
-            "Sample profile: Retail company in Dammam, 200 employees, medium budget. "
-            "Comparing Standard vs Premium. Recommended: Standard. "
-            "Medium-low risk industry does not justify Premium cost in Dammam."
+            "Customer C profile: Retail company in Dammam, 200 employees, medium budget, "
+            "dependents ratio 0.50. Priority: Stable service and moderate cost. "
+            "Recommended: Standard Plan, Network B. "
+            "Medium-low risk industry does not justify Premium cost in Dammam. "
+            "Standard provides stable service with balanced cost."
         ),
         "metadata": {
             "industry": "retail", "region": "dammam",
-            "budget": "medium", "recommended_plan": "Standard"
+            "employees": 200, "dependents_ratio": 0.50,
+            "budget": "medium", "priority": "stable service and moderate cost",
+            "recommended_plan": "Standard",
         },
     },
 ]

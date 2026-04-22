@@ -8,9 +8,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # ── Google Gemini API ─────────────────────────────────────────
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-1.5-flash"  # Faster model with lower latency
+    GEMINI_MODEL: str = "gemma-4-31b-it"   # production reasoning model
     GEMINI_EMBED_MODEL: str = "gemini-embedding-001"
-    GEMINI_TIMEOUT: int = 30  # Reduced from 120s to 30s for faster fail
+    GEMINI_TIMEOUT: int = 60  # gemma-4-31b-it needs more time than flash; 60s is safe
 
     # ── Pinecone Vector DB ─────────────────────────────────────────
     PINECONE_API_KEY: str = ""

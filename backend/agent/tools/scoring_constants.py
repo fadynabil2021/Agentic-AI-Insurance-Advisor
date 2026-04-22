@@ -68,13 +68,14 @@ PRIORITY_KEYS_BY_LENGTH: list[str] = sorted(
 #   LOW     (5-10):   Informational — minor tradeoff.
 #   BONUS   (5-15):   Positive alignment — package matches stated priority.
 
-WEIGHT_BUDGET_INCOMPATIBLE:      int = 35   # package outside budget tier
-WEIGHT_INDUSTRY_HIGH_RISK_BASIC: int = 25   # Basic plan for high-risk industry
-WEIGHT_REGION_COST_PRESSURE:     int = 15   # Premium in high-cost region on medium budget
-WEIGHT_PRIORITY_MISALIGN:        int = 20   # package doesn't match user's stated priority
-WEIGHT_DEPENDENTS_BASIC:         int = 15   # high dependents ratio on Basic plan
-WEIGHT_INDUSTRY_OVER_SPEC:       int = 10   # Premium for medium-low risk (over-specification)
-BONUS_PRIORITY_MATCH:            int = 10   # package matches user's stated priority
+WEIGHT_BUDGET_INCOMPATIBLE:        int = 35   # package outside budget tier
+WEIGHT_INDUSTRY_HIGH_RISK_BASIC:  int = 25   # Basic plan for high-risk industry
+WEIGHT_REGION_COST_PRESSURE:      int = 15   # Premium in high-cost region on medium budget
+WEIGHT_PRIORITY_MISALIGN:         int = 20   # package doesn't match user's stated priority
+WEIGHT_DEPENDENTS_BASIC:          int = 15   # high dependents ratio on Basic plan
+WEIGHT_INDUSTRY_OVER_SPEC:        int = 10   # Premium for medium-low risk (over-specification)
+WEIGHT_CONFLICTING_CONSTRAINTS:   int = 10   # conflicting priority vs budget (e.g. best coverage + low budget)
+BONUS_PRIORITY_MATCH:             int = 10   # package matches user's stated priority
 
 # ─── Confidence Thresholds ────────────────────────────────────────────────────
 # Confidence is determined by BOTH the top score AND the gap to the second score.

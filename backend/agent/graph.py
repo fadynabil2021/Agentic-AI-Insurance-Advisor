@@ -57,7 +57,7 @@ def build_graph(gemini_client: GeminiClient) -> any:
         return fallback_node(state, _get_trace(config))
 
     async def _retrieval_tool(state: AgentState, config: dict) -> AgentState:
-        return await retrieval_tool_node(state, _get_trace(config))
+        return await retrieval_tool_node(state, gemini_client, _get_trace(config))
 
     def _scoring_tool(state: AgentState, config: dict) -> AgentState:
         return scoring_tool_node(state, _get_trace(config))

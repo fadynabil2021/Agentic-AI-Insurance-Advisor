@@ -124,6 +124,21 @@ def _check_scenario(result: dict, expected: dict) -> tuple[bool, list[str]]:
         if result.get("recommendation") is not None:
             failures.append("Expected recommendation=null")
 
+    # query_type
+    if "query_type" in expected:
+        qt = result.get("query_type")
+        # Handle enum value if it's an enum
+        qt_str = getattr(qt, "value", str(qt)).lower() if qt else ""
+        if qt_str != expected["query_type"].lower():
+            failures.append(f"Expected query_type={expected['query_type']}, got {qt_str}")
+
+    # must_mention_industry
+    if "must_mention_industry" in expected:
+        reasoning = result.get("reasoning") or []
+        reasoning_text = " ".join(reasoning).lower()
+        if expected["must_mention_industry"].lower() not in reasoning_text:
+            failures.append(f"Expected reasoning to mention industry '{expected['must_mention_industry']}'")
+
     # requires_clarification
     if "requires_clarification" in expected:
         if result.get("requires_clarification") != expected["requires_clarification"]:
@@ -141,6 +156,12 @@ def _check_scenario(result: dict, expected: dict) -> tuple[bool, list[str]]:
     if expected.get("fallback_note_present"):
         if not result.get("fallback_or_risk_note"):
             failures.append("Expected fallback_or_risk_note to be present")
+
+    # must_have_risk_note (requires domain-specific content, not generic)
+    if expected.get("must_have_risk_note"):
+        note = result.get("fallback_or_risk_note", "")
+        if not note or len(note) < 15:
+            failures.append("Expected a substantive risk/tradeoff note")
 
     # task_success
     if "task_success" in expected:
@@ -186,7 +207,7 @@ def _check_scenario(result: dict, expected: dict) -> tuple[bool, list[str]]:
 async def run_harness(
     compiled_graph,
     scenario_ids: Any = "all",
-    report_dir: str = "/app/docs",
+    report_dir: str = os.path.join(os.path.dirname(__file__), "..", "docs"),
 ) -> tuple[list[dict], str]:
     """Run evaluation scenarios and return (results, report_path)."""
     scenarios = EVAL_SCENARIOS

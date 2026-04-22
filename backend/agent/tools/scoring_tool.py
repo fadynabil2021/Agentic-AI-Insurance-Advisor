@@ -23,6 +23,7 @@ from agent.tools.scoring_constants import (
     WEIGHT_PRIORITY_MISALIGN,
     WEIGHT_DEPENDENTS_BASIC,
     WEIGHT_INDUSTRY_OVER_SPEC,
+    WEIGHT_CONFLICTING_CONSTRAINTS,
     BONUS_PRIORITY_MATCH,
     CONFIDENCE_SCORE_HIGH,
     CONFIDENCE_SCORE_MEDIUM_HIGH,
@@ -177,8 +178,29 @@ def run_scoring(packages: list[dict], entities: dict) -> list[dict]:
                 f"Basic insufficient"
             )
 
+        # ── Rule 6: Conflicting constraints ──────────────────────────────────
+        # When user wants best/maximum coverage but has a low budget, flag the
+        # conflict. Every package is penalized to lower overall confidence,
+        # signalling to the confidence engine that this is a difficult case.
+        if priority and budget:
+            priority_lower_check = (entities.get("priority") or "").lower()
+            budget_lower_check = (entities.get("budget") or "").lower()
+            coverage_priority = any(
+                k in priority_lower_check
+                for k in ["best", "maximum", "coverage", "comprehensive", "top"]
+            )
+            if coverage_priority and budget_lower_check == "low":
+                score -= WEIGHT_CONFLICTING_CONSTRAINTS
+                reasons.append(
+                    f"PENALTY(−{WEIGHT_CONFLICTING_CONSTRAINTS}): "
+                    f"Conflicting constraints — '{entities.get('priority')}' priority "
+                    f"conflicts with low budget"
+                )
+
         score = max(0, min(100, score))  # clamp 0–100
-        results.append({"package": pkg, "score": score, "reasons": reasons})
+        # Track whether ANY conflicting constraint was detected on this package
+        has_conflict = any("Conflicting constraints" in r for r in reasons)
+        results.append({"package": pkg, "score": score, "reasons": reasons, "has_conflict": has_conflict})
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
@@ -237,7 +259,25 @@ def scoring_tool_node(state: AgentState, langfuse_trace) -> AgentState:
         )
 
         # Confidence based on both absolute score and gap
-        state["confidence"] = _compute_confidence(top_score, second_score)
+        confidence = _compute_confidence(top_score, second_score)
+
+        # ── Conflicting constraints → cap confidence at MEDIUM ────────────
+        # If ANY scored package had a conflicting-constraints penalty, the
+        # situation is genuinely ambiguous; we must not claim high confidence.
+        any_conflict = any(r.get("has_conflict", False) for r in results)
+        if any_conflict:
+            CONFIDENCE_ORDER = ["none", "low", "medium", "medium-high", "high"]
+            current_rank = CONFIDENCE_ORDER.index(
+                confidence.value if hasattr(confidence, "value") else str(confidence)
+            ) if (confidence.value if hasattr(confidence, "value") else str(confidence)) in CONFIDENCE_ORDER else 0
+            medium_rank = CONFIDENCE_ORDER.index("medium")
+            if current_rank > medium_rank:
+                confidence = ConfidenceLevel.MEDIUM
+                state["execution_trace"].append(
+                    "scoring_tool: conflicting constraints detected — confidence capped at 'medium'"
+                )
+
+        state["confidence"] = confidence
     else:
         state["execution_trace"].append("scoring_tool: WARNING — no packages scored")
         state["confidence"] = ConfidenceLevel.NONE
@@ -251,7 +291,7 @@ def scoring_tool_node(state: AgentState, langfuse_trace) -> AgentState:
             span.end(output={
                 "top_package": results[0]["package"].get("name") if results else None,
                 "top_score": results[0]["score"] if results else 0,
-                "confidence": state["confidence"],
+                "confidence": str(state["confidence"]),
             })
         except Exception:
             pass

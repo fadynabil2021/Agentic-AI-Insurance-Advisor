@@ -1,10 +1,11 @@
 """
 Retrieval Tool Node — queries Pinecone vector store for relevant packages,
 rules, and knowledge snippets.
-Embedding model: Google text-embedding-004 via Gemini API.
+Embedding model: gemini-embedding-001 via Gemini API (injected via graph closure).
 """
 import asyncio
 from agent.state import AgentState
+from clients.gemini_client import GeminiClient
 from clients.langfuse_client import safe_create_span
 from config import settings
 
@@ -96,7 +97,7 @@ def merge_retrieval_results(packages: list, rules: list, snippets: list) -> list
     return merged
 
 
-async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
+async def retrieval_tool_node(state: AgentState, gemini_client: GeminiClient, langfuse_trace) -> AgentState:
     """
     Node 4: Query Pinecone for relevant packages and rules.
     Uses cosine similarity + metadata filters.
@@ -171,15 +172,8 @@ async def retrieval_tool_node(state: AgentState, langfuse_trace) -> AgentState:
 
         return results
 
-    # Get clients
-    from clients.gemini_client import GeminiClient
+    # Get Pinecone client (gemini_client injected via graph closure)
     from clients.pinecone_client import get_pinecone_client, get_or_create_index, query_vectors_async
-
-    gemini_client = GeminiClient(
-        api_key=settings.GEMINI_API_KEY,
-        model=settings.GEMINI_MODEL,
-        timeout=settings.GEMINI_TIMEOUT,
-    )
 
     pinecone_client = get_pinecone_client(settings.PINECONE_API_KEY)
     pinecone_index = None
