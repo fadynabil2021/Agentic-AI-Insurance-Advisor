@@ -7,34 +7,40 @@ from agent.state import AgentState, QueryType
 from clients.gemini_client import GeminiClient, safe_json_parse
 from clients.langfuse_client import safe_create_span
 
-INTENT_SYSTEM_PROMPT = """You are a strictly bound intent extraction engine for a Saudi Arabian Insurance Advisor.
-Your ONLY purpose is to help with business insurance plan selection within Saudi Arabia.
+INTENT_SYSTEM_PROMPT = """You are an intent extraction engine for a Saudi Arabian Insurance Advisor.
 
-CONSTRAINTS (CRITICAL - READ CAREFULLY):
-1. SUPPORTED REGIONS: ONLY cities within Saudi Arabia: "riyadh", "jeddah", "dammam".
-2. SUPPORTED INDUSTRIES: ONLY "healthcare", "construction", "retail".
-3. GEOGRAPHIC VALIDATION: If the user mentions ANY city/region outside Saudi Arabia (e.g., London, Cairo, Dubai, New York, Paris, Tokyo, Abu Dhabi, Doha, Kuwait, Manama, Muscat), you MUST set query_type to "unsupported".
-4. INDUSTRY VALIDATION: If the user mentions ANY industry not listed (e.g., food delivery, tourism, agriculture, technology, finance, education, manufacturing), you MUST set query_type to "unsupported".
-5. If the request is not related to insurance plan selection, set query_type to "unsupported".
-6. When query_type is "unsupported", set ALL other fields (industry, region, budget, etc.) to null.
+SUPPORTED REGIONS (Saudi Arabia only): riyadh, jeddah, dammam
+SUPPORTED INDUSTRIES: healthcare, construction, retail
 
-Extraction Schema (Return ONLY JSON inside <answer></answer> tags):
-{
-  "query_type": one of ["recommend", "compare", "explain", "cheapest", "clarify", "unsupported"],
-  "industry": string or null,
-  "region": string or null,
-  "budget": one of ["low", "medium", "high"] or null,
-  "priority": string or null,
-  "employees": integer or null,
-  "dependents_ratio": float or null,
-  "compare_packages": list of strings or null
-}
+YOUR TASK:
+1. Extract industry and region from the user's query
+2. Infer budget/priority from tone: "best/top/premium" -> high; "cheapest/budget/low" -> low
+3. Return ONLY valid JSON inside <answer></answer> tags
 
-Inference Rules:
-- INFER budget/priority from tone: "best/top/premium" -> high/maximum; "cheapest/budget/low" -> low/lowest cost.
-- industry normalization: "hospital/clinic" -> healthcare; "builder/engineer" -> construction; "shop/store" -> retail.
-- region normalization: lowercase (riyadh, jeddah, dammam).
-- CRITICAL: When query_type is "unsupported", ALL other fields MUST be null."""
+QUERY TYPE RULES:
+- "recommend" — user asks for best/top recommendation
+- "cheapest" — user asks for lowest cost option
+- "compare" — user wants to compare packages
+- "explain" — user asks about plans/coverage details
+- "clarify" — user asks a question needing clarification
+- "unsupported" — region outside Saudi Arabia OR industry not supported OR not about insurance
+
+EXAMPLES:
+Input: "Recommend the best plan for a healthcare company in Riyadh"
+Output: <answer>{"query_type": "recommend", "industry": "healthcare", "region": "riyadh", "budget": "high", "priority": "best"}</answer>
+
+Input: "Cheapest insurance for construction in Jeddah"
+Output: <answer>{"query_type": "cheapest", "industry": "construction", "region": "jeddah", "budget": "low"}</answer>
+
+Input: "Best plan for healthcare in London"
+Output: <answer>{"query_type": "unsupported", "industry": null, "region": null}</answer>
+
+Input: "Insurance for tourism company in Riyadh"
+Output: <answer>{"query_type": "unsupported", "industry": null, "region": null}</answer>
+
+NORMALIZATION:
+- industry: "hospital/clinic/medical" -> "healthcare"; "builder/engineering" -> "construction"; "shop/store/retail" -> "retail"
+- region: lowercase (riyadh, jeddah, dammam)"""
 
 # Required fields per query type (for missing_fields detection)
 REQUIRED_FIELDS_PER_QUERY_TYPE: dict[str, list[str]] = {
@@ -45,6 +51,10 @@ REQUIRED_FIELDS_PER_QUERY_TYPE: dict[str, list[str]] = {
     "clarify":   [],
     "unsupported": [],
 }
+
+# Supported values for validation
+SUPPORTED_REGIONS = {"riyadh", "jeddah", "dammam"}
+SUPPORTED_INDUSTRIES = {"healthcare", "construction", "retail"}
 
 
 async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, langfuse_trace) -> AgentState:
@@ -105,6 +115,20 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
         if k != "query_type" and v is not None
     }
     state["extracted_entities"] = entities
+
+    # POST-PARSING VALIDATION: Programmatically validate region and industry
+    # This ensures unsupported regions/industries are caught even if LLM misses them
+    region = entities.get("region", "").lower() if entities.get("region") else ""
+    industry = entities.get("industry", "").lower() if entities.get("industry") else ""
+
+    if region and region not in SUPPORTED_REGIONS:
+        state["query_type"] = QueryType.UNSUPPORTED
+        state["extracted_entities"] = {}
+        state["execution_trace"].append(f"intent_parser: region '{region}' not supported, routing to fallback")
+    elif industry and industry not in SUPPORTED_INDUSTRIES:
+        state["query_type"] = QueryType.UNSUPPORTED
+        state["extracted_entities"] = {}
+        state["execution_trace"].append(f"intent_parser: industry '{industry}' not supported, routing to fallback")
 
     # Identify missing required fields
     qt = state["query_type"]

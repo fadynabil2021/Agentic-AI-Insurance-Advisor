@@ -8,39 +8,45 @@ from agent.state import AgentState, ConfidenceLevel
 from clients.gemini_client import GeminiClient
 from clients.langfuse_client import safe_create_span
 
-REASONING_SYSTEM_PROMPT = """You are a senior Saudi Insurance Consultant. Your task is to write 3-5 unique, specific bullet points explaining why the selected plan is optimal for THIS specific business.
+REASONING_SYSTEM_PROMPT = """You are a senior Saudi Insurance Consultant writing a recommendation for a SPECIFIC business client.
 
-INPUT DATA YOU WILL RECEIVE:
-- package: The selected plan name and details
-- score: The numerical score (0-100) this plan received
+YOUR INPUT:
+- selected_package: {name, network, price_range}
+- selected_score: The score (0-100) this plan achieved
+- score_gap_to_second: How many points ahead this plan is vs 2nd place
+- scoring_reasons: ACTUAL rule-by-rule reasons from the scoring engine
+- all_scored_packages: Complete leaderboard with names, scores, networks, prices
 - entities: {industry, region, budget, priority, dependents_ratio}
-- scoring_reasons: The ACTUAL reasons from the scoring tool showing why this plan scored well
-- all_scored_packages: All packages that were scored with their scores
+- market_context: {region, industry, budget_tier}
 
-YOUR RESPONSE MUST:
-1. Reference the ACTUAL score difference between packages (e.g., "Scored 92/100 vs 78/100 for Standard")
-2. Cite SPECIFIC scoring reasons from the scoring_reasons array — do not make up generic benefits
-3. Connect the industry (e.g., healthcare) to SPECIFIC coverage needs in that sector
-4. Mention the region's medical cost environment (Riyadh = highest costs, Jeddah = moderate, Dammam = lower)
-5. Address budget tier implications if budget was provided
-6. Each bullet must be UNIQUE — no repeated phrases or generic filler
+YOUR TASK: Write 3-5 bullet points explaining why THIS plan is optimal for THIS client.
 
-STRICT FORMATTING RULES:
-- Provide exactly 3-5 bullet points
-- Each bullet starts with a dash (-) followed by a space
-- Wrap your ENTIRE response inside [REASONING] and [/REASONING] tags
-- NO preamble, NO self-introduction, NO explanations outside the tags
-- Do NOT output JSON, code blocks, or any other format
+CRITICAL REQUIREMENTS - EACH BULLET MUST:
+1. Reference ACTUAL numbers: "Scored X/100" or "Y points ahead of Standard" or "Network A vs Network B"
+2. Cite SPECIFIC scoring_reasons from the input — do NOT invent generic benefits
+3. Connect industry to coverage: healthcare needs specialists, construction needs injury coverage, retail needs cost-effectiveness
+4. Mention region economics: Riyadh (highest costs), Jeddah (moderate), Dammam (lower)
+5. Be UNIQUE to this query — no template phrases, no filler
 
-EXAMPLE OF GOOD OUTPUT:
-[REASONING]
-- Premium scored 95/100 (vs 82/100 for Standard) — Network A includes 15 top-tier hospitals in Riyadh not covered by Network B
-- Healthcare industry requires specialist access — Premium covers advanced diagnostics and consultant visits critical for clinic staff
-- Riyadh's high medical costs make Network A's broader coverage cost-effective long-term despite higher premium
-- High budget tier aligns with Premium — maximizes employee retention value through comprehensive family coverage
-[/REASONING]
+FORBIDDEN:
+- Generic phrases like "optimal match for your profile"
+- Vague statements without numbers
+- Repeating the same point twice
+- Any preamble or self-introduction
 
-NOW generate 3-5 bullets based on the actual scoring data provided. Make each response UNIQUE to this specific query."""
+FORMAT:
+- Exactly 3-5 bullets
+- Start each with "- " (dash space)
+- Wrap entire response in [REASONING]...[/REASONING]
+- NO other text outside tags
+
+GOOD EXAMPLES (adapt to actual data):
+- "Premium scored 92/100, 14 points ahead of Standard (78/100) — Network A covers 15 Riyadh hospitals including Dr. Sulaiman Al-Habib"
+- "Healthcare sector requires specialist diagnostics — Premium covers advanced imaging and consultant visits Standard excludes"
+- "Riyadh medical costs 40% above national average — Network A's direct billing at 28 facilities prevents out-of-pocket expenses"
+- "Budget tier 'high' enables Premium — per-employee cost justified by 92/100 coverage score vs 78/100 for Standard"
+
+Generate 3-5 bullets NOW using the actual data provided."""
 
 def build_risk_note(top_pkg_name: str, scoring_results: list[dict], entities: dict) -> str:
     """
@@ -293,21 +299,35 @@ async def output_composer_node(
     raw_reasons = scoring_breakdown.get(top_name_lower, {}).get("reasons", [])
 
     # ── LLM reasoning narrative ────────────────────────────────────────────────
-    # We mix the deterministic scoring context with LLM creativity to 
+    # We mix the deterministic scoring context with LLM creativity to
     # ensure every response is unique while staying factual.
+
+    # Build complete scoring picture for the LLM
+    all_scores = []
+    for r in scoring_results:
+        pkg_name = r["package"].get("name", "Unknown")
+        all_scores.append({
+            "name": pkg_name,
+            "score": r["score"],
+            "network": r["package"].get("network", ""),
+            "price_range": r["package"].get("price_range", [0, 0])
+        })
+
     reasoning_context = {
-        "package": top_pkg.get("name"),
-        "score": top_result["score"],
+        "selected_package": {
+            "name": top_pkg.get("name"),
+            "network": top_pkg.get("network"),
+            "price_range": top_pkg.get("price_range"),
+        },
+        "selected_score": top_result["score"],
+        "score_gap_to_second": score_gap,
         "entities": entities,
-        "scoring_reasons": raw_reasons,
+        "scoring_reasons": raw_reasons,  # Actual rule-by-rule reasons from scoring
+        "all_scored_packages": all_scores,  # Full leaderboard with scores
         "market_context": {
             "region": region,
             "industry": industry,
             "budget_tier": budget
-        },
-        "all_scored_packages": {
-            r["package"].get("name", "?"): r["score"]
-            for r in scoring_results
         }
     }
 
