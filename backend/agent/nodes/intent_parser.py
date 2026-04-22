@@ -82,6 +82,7 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
 
     raw = None
     parsed = None
+    parse_attempts = 0
     for attempt in range(3):  # up to 2 retries
         try:
             raw = await gemini_client.chat(
@@ -90,17 +91,24 @@ async def intent_parser_node(state: AgentState, gemini_client: GeminiClient, lan
                     {"role": "user", "content": state["user_request"]},
                 ],
                 temperature=0.1,
-                max_tokens=256,  # Reduced for faster response
+                max_tokens=256,
             )
+            parse_attempts += 1
+            print(f"[intent_parser] Attempt {parse_attempts}, raw response: {raw[:300]}...")
             parsed = safe_json_parse(raw)
             if parsed is not None:
+                print(f"[intent_parser] SUCCESS on attempt {parse_attempts}: {parsed}")
                 break
+            else:
+                print(f"[intent_parser] Failed to parse JSON on attempt {parse_attempts}")
         except Exception as e:
             state["execution_trace"].append(f"intent_parser: attempt {attempt+1} failed — {e}")
+            print(f"[intent_parser] Exception on attempt {attempt+1}: {e}")
 
     if parsed is None:
         state["error"] = {"type": "PARSE_ERROR", "message": "Failed to parse intent after 3 attempts"}
         state["execution_trace"].append("intent_parser: FAILED to parse intent, routing to fallback")
+        print(f"[intent_parser] ALL ATTEMPTS FAILED - routing to fallback")
         if span:
             try:
                 span.end(output={"error": state["error"]})

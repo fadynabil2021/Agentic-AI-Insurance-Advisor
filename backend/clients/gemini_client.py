@@ -139,31 +139,56 @@ class GeminiClient:
 def safe_json_parse(raw: str) -> Optional[dict]:
     """
     Attempt to parse JSON from Gemini output, handling common model formatting issues.
-    Strips markdown code fences if present.
     """
     import json
     import re
     text = raw.strip()
-    
-    # Try to extract content between <answer> tags first
+
+    # STRATEGY 1: Extract content between <answer> tags and find JSON there
     match = re.search(r'<answer>(.*?)</answer>', text, re.DOTALL | re.IGNORECASE)
     if match:
-        text = match.group(1).strip()
+        answer_content = match.group(1).strip()
+        # Find JSON object within the answer content
+        start = answer_content.find("{")
+        end = answer_content.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            json_text = answer_content[start : end + 1]
+            try:
+                result = json.loads(json_text)
+                return result
+            except json.JSONDecodeError:
+                pass
 
-    # Strip markdown JSON code block if present
-    if text.startswith("```"):
-        lines = text.split("\n")
-        # Remove first line (```json or ```) and last line (```)
-        inner = [l for l in lines[1:] if l.strip() != "```"]
-        text = "\n".join(inner).strip()
+    # STRATEGY 2: Find the LAST JSON object in the text (after all thinking)
+    # This catches cases where LLM outputs thinking + JSON without proper tags
+    # We look for the last { } pair which is most likely the actual JSON output
+    last_start = -1
+    for i in range(len(text) - 1, -1, -1):
+        if text[i] == "{":
+            last_start = i
+            break
 
-    # Try to find first { ... } block
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        text = text[start : end + 1]
+    if last_start != -1:
+        last_end = text.rfind("}")
+        if last_end > last_start:
+            json_text = text[last_start : last_end + 1]
+            # Clean up common LLM formatting issues
+            json_text = re.sub(r'`([^`]*)`', r'"\1"', json_text)  # Replace backticks with quotes
+            try:
+                result = json.loads(json_text)
+                return result
+            except json.JSONDecodeError:
+                pass
 
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return None
+    # STRATEGY 3: Try to find any valid JSON object in the text
+    # Use regex to find potential JSON objects
+    potential_jsons = re.findall(r'\{[^{}]*"[^"]*"[^{}]*\}', text)
+    for candidate in potential_jsons:
+        try:
+            result = json.loads(candidate)
+            if "query_type" in result:  # Validate it looks like our expected output
+                return result
+        except json.JSONDecodeError:
+            continue
+
+    return None
