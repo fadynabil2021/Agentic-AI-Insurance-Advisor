@@ -144,51 +144,64 @@ def safe_json_parse(raw: str) -> Optional[dict]:
     import re
     text = raw.strip()
 
-    # STRATEGY 1: Extract content between <answer> tags and find JSON there
+    def clean_json_text(j_text: str) -> str:
+        # Remove any markdown JSON block syntax if present
+        j_text = re.sub(r'^```(?:json)?|```$', '', j_text.strip(), flags=re.MULTILINE).strip()
+        # Replace backticks with quotes for keys/values
+        j_text = re.sub(r'`([^`]+)`', r'"\1"', j_text)
+        return j_text
+
+    # STRATEGY 1: Extract content between <answer> tags
     match = re.search(r'<answer>(.*?)</answer>', text, re.DOTALL | re.IGNORECASE)
     if match:
         answer_content = match.group(1).strip()
-        # Find JSON object within the answer content
+        answer_content = clean_json_text(answer_content)
+        
+        # Find JSON object bounds
         start = answer_content.find("{")
         end = answer_content.rfind("}")
-        if start != -1 and end != -1 and end > start:
+        if start != -1 and end != -1 and end >= start:
             json_text = answer_content[start : end + 1]
             try:
-                result = json.loads(json_text)
-                return result
+                return json.loads(json_text)
             except json.JSONDecodeError:
                 pass
-
-    # STRATEGY 2: Find the LAST JSON object in the text (after all thinking)
-    # This catches cases where LLM outputs thinking + JSON without proper tags
-    # We look for the last { } pair which is most likely the actual JSON output
-    last_start = -1
-    for i in range(len(text) - 1, -1, -1):
-        if text[i] == "{":
-            last_start = i
-            break
-
-    if last_start != -1:
-        last_end = text.rfind("}")
-        if last_end > last_start:
-            json_text = text[last_start : last_end + 1]
-            # Clean up common LLM formatting issues
-            json_text = re.sub(r'`([^`]*)`', r'"\1"', json_text)  # Replace backticks with quotes
-            try:
-                result = json.loads(json_text)
-                return result
-            except json.JSONDecodeError:
-                pass
-
-    # STRATEGY 3: Try to find any valid JSON object in the text
-    # Use regex to find potential JSON objects
-    potential_jsons = re.findall(r'\{[^{}]*"[^"]*"[^{}]*\}', text)
-    for candidate in potential_jsons:
+                
+        # Try raw answer content (it might be a bare JSON string/object without braces)
         try:
-            result = json.loads(candidate)
-            if "query_type" in result:  # Validate it looks like our expected output
-                return result
+            return json.loads(answer_content)
         except json.JSONDecodeError:
-            continue
+            pass
+
+    # STRATEGY 2: Find any markdown code block
+    match = re.search(r'```(?:json)?(.*?)```', text, re.DOTALL | re.IGNORECASE)
+    if match:
+        json_text = match.group(1).strip()
+        json_text = clean_json_text(json_text)
+        start = json_text.find("{")
+        end = json_text.rfind("}")
+        if start != -1 and end != -1 and end >= start:
+            try:
+                return json.loads(json_text[start : end + 1])
+            except json.JSONDecodeError:
+                pass
+
+    # STRATEGY 3: Robust fallback searching for {...} starting from the end
+    # This correctly parses cases where thinking content might contain '{'
+    start_indices = [i for i, c in enumerate(text) if c == '{']
+    end_indices = [i for i, c in enumerate(text) if c == '}']
+    
+    # Try combinations starting from the back to prioritize the actual output
+    for start in reversed(start_indices):
+        for end in reversed(end_indices):
+            if end > start:
+                json_text = text[start : end + 1]
+                json_text = clean_json_text(json_text)
+                try:
+                    result = json.loads(json_text)
+                    if isinstance(result, dict):
+                        return result
+                except json.JSONDecodeError:
+                    pass
 
     return None
