@@ -1,0 +1,86 @@
+
+Running evaluation harness — 8 scenarios [eval_20260426_180756]
+────────────────────────────────────────────────────────────
+[intent_parser] Exception on attempt 1: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 2: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 3: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] ALL ATTEMPTS FAILED - routing to fallback
+[FAIL] S1_balanced                    confidence=none         grounding=1.00  latency=1547ms
+         → Expected plan in ['Standard', 'Premium'], got 'None'
+         → Expected query_type=recommend, got 
+         → Expected reasoning to mention industry 'healthcare'
+         → Expected task_success>=1, got 0.0
+         → Expected confidence >= medium, got none
+[intent_parser] Exception on attempt 1: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 2: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 3: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] ALL ATTEMPTS FAILED - routing to fallback
+[FAIL] S2_cheapest                    confidence=none         grounding=1.00  latency=1261ms
+         → Expected plan in ['Basic', 'Standard'], got 'None'
+         → Expected query_type=cheapest, got 
+         → Expected task_success>=1, got 0.0
+         → Expected confidence >= medium, got none
+[intent_parser] Exception on attempt 1: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 2: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 3: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] ALL ATTEMPTS FAILED - routing to fallback
+[FAIL] S3_compare                     confidence=none         grounding=1.00  latency=1153ms
+         → Expected query_type=compare, got 
+         → Expected comparison_matrix to be present
+         → Expected task_success>=1, got 0.0
+[intent_parser] Exception on attempt 1: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 2: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 3: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] ALL ATTEMPTS FAILED - routing to fallback
+[FAIL] S4_missing_info                confidence=none         grounding=1.00  latency=587ms
+         → Expected requires_clarification=True, got False
+         → Expected task_success>=1, got 0.0
+[intent_parser] Exception on attempt 1: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 2: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 3: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] ALL ATTEMPTS FAILED - routing to fallback
+[FAIL] S5_explain                     confidence=none         grounding=1.00  latency=773ms
+         → Expected task_success>=1, got 0.0
+         → Expected reasoning to be present
+[intent_parser] Exception on attempt 1: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 2: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 3: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] ALL ATTEMPTS FAILED - routing to fallback
+[FAIL] E1_conflicting_constraints     confidence=none         grounding=1.00  latency=590ms
+         → Expected plan in ['Basic', 'Standard'], got 'None'
+[intent_parser] Exception on attempt 1: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 2: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 3: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] ALL ATTEMPTS FAILED - routing to fallback
+[FAIL] E2_unsupported                 confidence=none         grounding=1.00  latency=734ms
+         → Expected query_type=unsupported, got 
+[intent_parser] Exception on attempt 1: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 2: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] Exception on attempt 3: Gemini API call failed: 404 models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[intent_parser] ALL ATTEMPTS FAILED - routing to fallback
+[PASS] E3_empty_retrieval             confidence=none         grounding=1.00  latency=851ms
+
+────────────────────────────────────────────────────────────
+Results:  1/8 passed  (12%)
+Avg grounding score:  1.000
+Hallucinations detected: 0
+Avg latency: 937ms
+Traceback (most recent call last):
+  File "/home/fady/Agent_Recommendation_Assignment/backend/tests/eval_harness.py", line 356, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/home/fady/miniconda3/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/home/fady/miniconda3/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/home/fady/miniconda3/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/home/fady/Agent_Recommendation_Assignment/backend/tests/eval_harness.py", line 353, in main
+    await run_harness(graph)
+  File "/home/fady/Agent_Recommendation_Assignment/backend/tests/eval_harness.py", line 333, in run_harness
+    with open(report_path, "w") as f:
+         ~~~~^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: '/home/fady/Agent_Recommendation_Assignment/backend/tests/../docs/evaluation_report.json'

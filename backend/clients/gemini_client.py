@@ -1,6 +1,6 @@
 """
 Google Gemini API client wrapper.
-Direct API access to Gemma 4 and other Google models without Ollama.
+Direct API access to Gemini 1.5 Pro and other Google models.
 """
 import google.generativeai as genai
 from typing import Optional

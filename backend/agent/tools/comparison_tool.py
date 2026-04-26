@@ -1,6 +1,6 @@
 """
 Comparison Tool Node — builds a structured comparison matrix when query_type == COMPARE.
-Table construction is deterministic; optional Gemma 4 call for recommendation_reason narrative.
+Table construction is deterministic; optional Gemini 1.5 Pro call for recommendation_reason narrative.
 """
 from agent.state import AgentState
 from agent.tools.scoring_constants import INDUSTRY_RISK
@@ -109,7 +109,7 @@ async def comparison_tool_node(
     # Top recommendation = highest scoring package
     top = scoring_results[0]["package"].get("name") if scoring_results else pkg_names[0]
 
-    # Generate recommendation reason via Gemma 4
+    # Generate recommendation reason via Gemini 1.5 Pro
     reason = ""
     try:
         prompt_data = {

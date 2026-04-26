@@ -1,6 +1,6 @@
 """
 Evaluator Node — measures quality of the final recommendation.
-5 deterministic dimensions + 2 LLM-judge dimensions (Gemma 4).
+5 deterministic dimensions + 2 LLM-judge dimensions (Gemini 1.5 Pro).
 Logs all scores to Langfuse.
 """
 import json

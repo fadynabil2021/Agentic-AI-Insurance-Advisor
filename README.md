@@ -1,117 +1,111 @@
-# Agentic Insurance Advisor — Mission 3 Elite Assessment
+# Agentic Insurance Advisor 
 
-A production-grade, state-driven agentic system built with LangGraph, FastAPI, Google Gemini, and Pinecone.
+**Live Demo:** [https://agentic-ai-insurance-advisor.vercel.app/](https://agentic-ai-insurance-advisor.vercel.app/)
 
-## 🚀 Quick Start (Local Development)
+A production-grade, state-driven agentic system built with **LangGraph**, **FastAPI**, **Google Gemini**, and **Pinecone**. This system provides structured insurance recommendations based on natural language queries, with built-in evaluation and observability.
 
-### 1. Prerequisites
-- Python 3.10+
-- Upstash Redis account (for caching)
-- Pinecone account (for vector store)
-- Google Gemini API key
-- Langfuse account (for observability)
+---
 
-### 2. Setup
+##  Features
+
+- **Stateful Orchestration**: LangGraph-based workflow with 9 specialized nodes.
+- **Hybrid Scoring**: Combines deterministic business rules with LLM-powered reasoning.
+- **RAG Integration**: Semantic retrieval of insurance packages and rules via Pinecone.
+- **Production Observability**: Full trace logging and evaluation scores in Langfuse.
+- **Evaluation Harness**: Automated testing across 8 edge-case scenarios.
+
+---
+
+##  Getting Started
+
+### Prerequisites
+- **Docker & Docker Compose** (Recommended)
+- **Google Gemini API Key** (Gemini 1.5 Pro)
+- **Pinecone Account** (API Key, Environment, Index Name)
+- **Upstash Redis Account** (REST URL & Token for caching)
+- **Langfuse Account** (Public Key, Secret Key, Host)
+
+### 1. Environment Configuration
+Copy the example environment file and fill in your credentials:
 ```bash
-# Clone and install dependencies
-git clone <repository_url>
-cd Agent_Recommendation_Assignment
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Configure environment
 cp .env.example .env
-# Edit .env with your actual API keys
 ```
 
-### 3. Seed Vector Database
-Before running the server, populate Pinecone with the package catalog, rules, and customer profiles:
+### 2. Option A: Run with Docker (Recommended)
+This brings up the Backend, Frontend, and a self-hosted Langfuse instance:
+```bash
+docker compose up --build
+```
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8000`
+- **Langfuse UI**: `http://localhost:3001`
+
+### 3. Option B: Local Python Development
+If you prefer running without Docker:
+
+**Backend Setup:**
 ```bash
 cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**Seed the Vector Database:**
+```bash
+# Populate Pinecone with packages, rules, and profiles
 python data/seed_data.py --reset
 ```
 
-### 4. Run the Server
+**Run Server:**
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
-The API will be available at `http://localhost:8000`
 
 ---
 
-## 🏗 System Architecture
+##  Evaluation & Testing
 
-For a detailed visual mapping of nodes, state transitions, and component interactions, see the [Architecture Diagram](architecture_diagram.md).
+The system includes a rigorous evaluation harness that measures task success, grounding, and hallucination.
 
-Key characteristics of the architecture:
-- **Stateful Orchestration**: Built on LangGraph `StateGraph`, maintaining a rigid schema across nodes.
-- **Hybrid Logic Engine**: Combines deterministic Python heuristics for scoring (ensuring reliability) with Gemini's reasoning capabilities (for natural narrative synthesis).
-- **Cloud-Native Integrations**: Upstash Redis (caching), Pinecone (retrieval), Langfuse (traceability). 
-
----
-
-## 🔌 API Reference
-
-### 1. Agent Query
-`POST /api/v1/query`
-Sends a natural language request to the agent and returns a structured decision.
-
-**Request:**
-```json
-{
-  "user_id": "user_123",
-  "query": "Recommend the best plan for a healthcare company in Riyadh."
-}
-```
-
-**Response (Extracted Sample):**
-```json
-{
-  "plan": {"steps": ["intent_parsing", "retrieval", "scoring", "composition"]},
-  "recommendation": {
-    "plan_name": "Standard",
-    "network": "B",
-    "price_range": [6000, 7500]
-  },
-  "confidence": "medium-high",
-  "execution_trace": ["..."]
-}
-```
-
-### 2. Health Check
-`GET /api/v1/health`
-Verifies connectivity to all upstream providers (Gemini, Pinecone, Redis, Langfuse).
-
-### 3. Evaluation
-`POST /api/v1/eval/run`
-Triggers the internal evaluation harness.
-
----
-
-## 🌐 Deployment (Railway)
-
-The application is deployed on Railway via Nixpacks.
-- Uses `Procfile` mapping: `web: cd backend && /opt/venv/bin/uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}`
-- Uses Nixpacks configurations in `nixpacks.toml` to install dependencies via `backend/requirements.txt` and expose library paths.
-
-**Required Environment Variables (Railway Dashboard):**
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL` (set to `gemma-4-31b-it`)
-- `PINECONE_API_KEY`, `PINECONE_ENV`, `PINECONE_INDEX_NAME`
-- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
-- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`
-
----
-
-## 📊 Evaluation Harness
-
-The system includes a rigorous evaluation harness (`backend/tests/eval_harness.py`) that tests 8 specific scenarios against 7 dimensions (5 deterministic + 2 LLM-judged).
-
-To run the harness locally:
+**Run Evaluation Harness:**
 ```bash
 cd backend
+# Ensure venv is active
 python -m tests.eval_harness
 ```
+Results are pushed to Langfuse and saved locally in `backend/docs/evaluation_report.json`.
 
-Results are saved as a JSON report in `backend/docs/evaluation_report.json`.
+---
+
+##  Documentation
+
+- **[Technical Report](technical_report.md)**: Deep dive into design decisions, model selection, and evaluation strategy.
+- **[Architecture Diagram](architecture_diagram.md)**: Visual mapping of the LangGraph workflow and data model.
+
+
+---
+
+##  API Quick Reference
+
+### Agent Query
+`POST /api/v1/query`
+```json
+{
+  "user_id": "test_user",
+  "query": "Recommend a construction insurance plan in Riyadh for a medium budget."
+}
+```
+
+### Health Check
+`GET /api/v1/health`
+Verifies connectivity to Gemini, Pinecone, Redis, and Langfuse.
+
+---
+
+##  Deployment
+This project is configured for **Railway** deployment using Nixpacks.
+- See `railway.json` and `nixpacks.toml` for deployment settings.
+- Ensure all environment variables in `.env.example` are mirrored in your Railway dashboard.
+
+

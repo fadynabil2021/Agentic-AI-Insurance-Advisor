@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemma-4-31b-it"   # production reasoning model
     GEMINI_EMBED_MODEL: str = "gemini-embedding-001"
-    GEMINI_TIMEOUT: int = 60  # gemma-4-31b-it needs more time than flash; 60s is safe
+    GEMINI_TIMEOUT: int = 120  # gemma-4-31b-it needs more time than flash
 
     # ── Pinecone Vector DB ─────────────────────────────────────────
     PINECONE_API_KEY: str = ""
